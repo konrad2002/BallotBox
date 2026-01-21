@@ -1,12 +1,12 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import {useEffect, useMemo, useState} from "react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Plus, Trash2, Lock, Unlock } from "lucide-react"
+import {Button} from "@/components/ui/button"
+import {Input} from "@/components/ui/input"
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card"
+import {Badge} from "@/components/ui/badge"
+import {ArrowLeft, Lock, Plus, Trash2, Unlock} from "lucide-react"
 import * as htmlToImage from "html-to-image"
 import jsPDF from "jspdf"
 
@@ -352,42 +352,6 @@ export default function ManagePage() {
     }
     return container
   }
-
-  const getShareDataUrl = async (label: string) => {
-    const data = await fetchResults(label)
-    const finalRound = data.rounds?.[data.rounds.length - 1]
-    const tallies = finalRound?.tallies || []
-    const sorted = [...tallies].sort((a: any, b: any) => Number(b.votes) - Number(a.votes))
-    const topFive = sorted.slice(0, 5).map((t: any) => ({
-      label: t.option.label,
-      votes: t.votes,
-    }))
-    const node = buildShareCard({
-      voteLabel: data.voteLabel,
-      voteTitle: data.voteTitle,
-      winnerLabel: data.winner?.label,
-      totalVotes: data.totalVotes,
-      topFive,
-    }, { mode: "capture" })
-    // Wait a couple frames and a short timeout to ensure layout and fonts apply before capture
-    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
-    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    try {
-      const dataUrl = await htmlToImage.toPng(node, {
-        cacheBust: true,
-        skipFonts: true,
-        width: 1200,
-        height: 1200,
-        backgroundColor: "#0f172a",
-        pixelRatio: 2,
-      })
-      return dataUrl
-    } finally {
-      node.remove()
-    }
-  }
-
   const downloadPng = async (label: string) => {
     try {
       const data = await fetchResults(label)
@@ -491,13 +455,410 @@ export default function ManagePage() {
     }
   }
 
+  const buildPdfDocument = (data: any, options?: { doc?: Document }) => {
+    const doc = options?.doc || document
+    const container = doc.createElement("div")
+    
+    // A4 at 96 DPI: 794 × 1123 px, but we'll use higher res for PDF
+    container.style.width = "794px"
+    container.style.minHeight = "1123px"
+    container.style.background = "#ffffff"
+    container.style.color = "#000000"
+    container.style.fontFamily = "'Times New Roman', serif"
+    container.style.padding = "60px"
+    container.style.boxSizing = "border-box"
+    container.style.position = "relative"
+    
+    // Header
+    const header = doc.createElement("div")
+    header.style.borderBottom = "2px solid #000000"
+    header.style.paddingBottom = "16px"
+    header.style.marginBottom = "24px"
+    
+    const title = doc.createElement("h1")
+    title.textContent = "Voting Results Report"
+    title.style.fontSize = "24px"
+    title.style.fontWeight = "bold"
+    title.style.margin = "0 0 8px 0"
+    title.style.color = "#000000"
+    
+    const voteTitle = doc.createElement("h2")
+    voteTitle.textContent = data.voteTitle
+    voteTitle.style.fontSize = "18px"
+    voteTitle.style.fontWeight = "normal"
+    voteTitle.style.margin = "0 0 8px 0"
+    voteTitle.style.color = "#333333"
+    
+    const meta = doc.createElement("div")
+    meta.style.fontSize = "12px"
+    meta.style.color = "#666666"
+    meta.textContent = `Vote ID: ${data.voteLabel} • Generated: ${new Date().toLocaleString()}`
+    
+    header.appendChild(title)
+    header.appendChild(voteTitle)
+    header.appendChild(meta)
+    
+    // Summary section
+    const summary = doc.createElement("div")
+    summary.style.marginBottom = "24px"
+    
+    const summaryTitle = doc.createElement("h3")
+    summaryTitle.textContent = "Summary"
+    summaryTitle.style.fontSize = "16px"
+    summaryTitle.style.fontWeight = "bold"
+    summaryTitle.style.margin = "0 0 12px 0"
+    summaryTitle.style.borderBottom = "1px solid #cccccc"
+    summaryTitle.style.paddingBottom = "4px"
+    summary.appendChild(summaryTitle)
+    
+    const summaryGrid = doc.createElement("div")
+    summaryGrid.style.display = "grid"
+    summaryGrid.style.gridTemplateColumns = "1fr 1fr"
+    summaryGrid.style.gap = "8px"
+    summaryGrid.style.fontSize = "14px"
+    
+    const addSummaryItem = (label: string, value: string) => {
+      const item = doc.createElement("div")
+      const labelSpan = doc.createElement("strong")
+      labelSpan.textContent = label + ": "
+      item.appendChild(labelSpan)
+      item.appendChild(doc.createTextNode(value))
+      summaryGrid.appendChild(item)
+    }
+    
+    addSummaryItem("Total Votes Cast", String(data.totalVotes))
+    addSummaryItem("Total Options", String(data.rounds?.[0]?.tallies?.length || 0))
+    if (data.winner) {
+      addSummaryItem("Winner", data.winner.label)
+    }
+    addSummaryItem("Voting Method", "Instant Runoff Voting (IRV)")
+    
+    summary.appendChild(summaryGrid)
+    
+    // Rounds section
+    const roundsSection = doc.createElement("div")
+    roundsSection.style.marginBottom = "24px"
+    
+    const roundsTitle = doc.createElement("h3")
+    roundsTitle.textContent = "Round-by-Round Results"
+    roundsTitle.style.fontSize = "16px"
+    roundsTitle.style.fontWeight = "bold"
+    roundsTitle.style.margin = "0 0 12px 0"
+    roundsTitle.style.borderBottom = "1px solid #cccccc"
+    roundsTitle.style.paddingBottom = "4px"
+    roundsSection.appendChild(roundsTitle)
+    
+    if (data.rounds && data.rounds.length > 0) {
+      data.rounds.forEach((round: any) => {
+        const roundDiv = doc.createElement("div")
+        roundDiv.style.marginBottom = "16px"
+        
+        const roundHeader = doc.createElement("div")
+        roundHeader.style.fontSize = "14px"
+        roundHeader.style.fontWeight = "bold"
+        roundHeader.style.marginBottom = "8px"
+        roundHeader.textContent = `Round ${round.roundNumber}`
+        if (round.eliminated) {
+          const eliminated = doc.createElement("span")
+          eliminated.style.fontWeight = "normal"
+          eliminated.style.color = "#cc0000"
+          eliminated.textContent = ` (Eliminated: ${round.eliminated})`
+          roundHeader.appendChild(eliminated)
+        }
+        roundDiv.appendChild(roundHeader)
+        
+        const table = doc.createElement("table")
+        table.style.width = "100%"
+        table.style.borderCollapse = "collapse"
+        table.style.fontSize = "12px"
+        
+        const thead = doc.createElement("thead")
+        const headerRow = doc.createElement("tr")
+        headerRow.style.borderBottom = "1px solid #000000"
+        
+        const th1 = doc.createElement("th")
+        th1.textContent = "Option"
+        th1.style.textAlign = "left"
+        th1.style.padding = "4px 8px"
+        th1.style.fontWeight = "bold"
+        
+        const th2 = doc.createElement("th")
+        th2.textContent = "Votes"
+        th2.style.textAlign = "right"
+        th2.style.padding = "4px 8px"
+        th2.style.fontWeight = "bold"
+        
+        const th3 = doc.createElement("th")
+        th3.textContent = "Percentage"
+        th3.style.textAlign = "right"
+        th3.style.padding = "4px 8px"
+        th3.style.fontWeight = "bold"
+        
+        headerRow.appendChild(th1)
+        headerRow.appendChild(th2)
+        headerRow.appendChild(th3)
+        thead.appendChild(headerRow)
+        table.appendChild(thead)
+        
+        const tbody = doc.createElement("tbody")
+        const sortedTallies = [...round.tallies].sort((a: any, b: any) => Number(b.votes) - Number(a.votes))
+        
+        sortedTallies.forEach((tally: any) => {
+          const row = doc.createElement("tr")
+          row.style.borderBottom = "1px solid #eeeeee"
+          
+          const td1 = doc.createElement("td")
+          td1.textContent = tally.option.label
+          td1.style.padding = "4px 8px"
+          
+          const td2 = doc.createElement("td")
+          td2.textContent = String(tally.votes)
+          td2.style.textAlign = "right"
+          td2.style.padding = "4px 8px"
+          
+          const td3 = doc.createElement("td")
+          const pct = data.totalVotes > 0 ? ((tally.votes / data.totalVotes) * 100).toFixed(1) : "0.0"
+          td3.textContent = `${pct}%`
+          td3.style.textAlign = "right"
+          td3.style.padding = "4px 8px"
+          
+          row.appendChild(td1)
+          row.appendChild(td2)
+          row.appendChild(td3)
+          tbody.appendChild(row)
+        })
+        
+        table.appendChild(tbody)
+        roundDiv.appendChild(table)
+        roundsSection.appendChild(roundDiv)
+      })
+    }
+    
+    // Footer
+    const footer = doc.createElement("div")
+    footer.style.marginTop = "32px"
+    footer.style.paddingTop = "16px"
+    footer.style.borderTop = "1px solid #cccccc"
+    footer.style.fontSize = "10px"
+    footer.style.color = "#666666"
+    footer.style.textAlign = "center"
+    
+    const footerText = doc.createElement("div")
+    footerText.textContent = "Generated by BallotBox"
+    const footerDomain = doc.createElement("div")
+    footerDomain.textContent = typeof window !== 'undefined' ? window.location.hostname : 'ballotbox.app'
+    
+    footer.appendChild(footerText)
+    footer.appendChild(footerDomain)
+    
+    container.appendChild(header)
+    container.appendChild(summary)
+    container.appendChild(roundsSection)
+    container.appendChild(footer)
+    
+    return container
+  }
+
   const downloadPdf = async (label: string) => {
     try {
-      const dataUrl = await getShareDataUrl(label)
-      const size = 1200
-      const pdf = new jsPDF({ orientation: "p", unit: "px", format: [size, size] })
-      pdf.addImage(dataUrl, "PNG", 0, 0, size, size)
-      pdf.save(`vote-${label}-results.pdf`)
+      const data = await fetchResults(label)
+      
+      const win = window.open("", "_blank")
+      if (!win) return
+      const doc = win.document
+      doc.open()
+      doc.write("<!DOCTYPE html><html><head><title>PDF Preview</title></head><body></body></html>")
+      doc.close()
+
+      doc.body.style.margin = "0"
+      doc.body.style.background = "#e5e5e5"
+      doc.body.style.fontFamily = "'Times New Roman', serif"
+      doc.body.style.display = "flex"
+      doc.body.style.flexDirection = "column"
+      doc.body.style.alignItems = "center"
+      doc.body.style.padding = "32px"
+
+      const heading = doc.createElement("h1")
+      heading.textContent = "PDF Document Preview"
+      heading.style.color = "#0f172a"
+      heading.style.fontSize = "24px"
+      heading.style.fontWeight = "700"
+      heading.style.margin = "0 0 8px 0"
+      doc.body.appendChild(heading)
+
+      const sub = doc.createElement("p")
+      sub.textContent = "Review the document below, then click Download PDF"
+      sub.style.color = "#64748b"
+      sub.style.fontSize = "14px"
+      sub.style.margin = "0 0 24px 0"
+      doc.body.appendChild(sub)
+
+      const pdfDoc = buildPdfDocument(data, { doc })
+      pdfDoc.style.boxShadow = "0 4px 20px rgba(0,0,0,0.15)"
+      pdfDoc.style.margin = "0 auto 24px auto"
+      doc.body.appendChild(pdfDoc)
+
+      const button = doc.createElement("button")
+      button.textContent = "Download PDF"
+      button.style.marginTop = "16px"
+      button.style.padding = "14px 28px"
+      button.style.border = "none"
+      button.style.borderRadius = "8px"
+      button.style.fontSize = "16px"
+      button.style.fontWeight = "700"
+      button.style.cursor = "pointer"
+      button.style.background = "#6366f1"
+      button.style.color = "#ffffff"
+      button.style.boxShadow = "0 4px 12px rgba(99,102,241,0.3)"
+      button.style.transition = "all 0.2s"
+      button.onmouseover = () => { button.style.background = "#4f46e5" }
+      button.onmouseout = () => { button.style.background = "#6366f1" }
+      button.onclick = async () => {
+        try {
+          button.textContent = "Generating PDF..."
+          
+          const pdf = new jsPDF({
+            orientation: "portrait",
+            unit: "mm",
+            format: "a4"
+          })
+          
+          const pageWidth = 210
+          const pageHeight = 297
+          const margin = 20
+          let yPos = margin
+
+          // Header
+          pdf.setFontSize(20)
+          pdf.setFont("times", "bold")
+          pdf.text("Voting Results Report", margin, yPos)
+          yPos += 8
+          
+          pdf.setFontSize(14)
+          pdf.setFont("times", "normal")
+          pdf.text(data.voteTitle, margin, yPos)
+          yPos += 6
+          
+          pdf.setFontSize(9)
+          pdf.setTextColor(100, 100, 100)
+          const hostname = typeof window !== 'undefined' ? window.location.hostname : 'ballotbox.app'
+          pdf.text(`Vote ID: ${data.voteLabel} • Generated: ${new Date().toLocaleString()}`, margin, yPos)
+          yPos += 8
+          
+          // Line under header
+          pdf.setDrawColor(0, 0, 0)
+          pdf.setLineWidth(0.5)
+          pdf.line(margin, yPos, pageWidth - margin, yPos)
+          yPos += 8
+          
+          // Summary section
+          pdf.setFontSize(12)
+          pdf.setFont("times", "bold")
+          pdf.setTextColor(0, 0, 0)
+          pdf.text("Summary", margin, yPos)
+          yPos += 5
+          
+          pdf.setLineWidth(0.3)
+          pdf.setDrawColor(200, 200, 200)
+          pdf.line(margin, yPos, pageWidth - margin, yPos)
+          yPos += 6
+          
+          pdf.setFontSize(10)
+          pdf.setFont("times", "normal")
+          pdf.text(`Total Votes Cast: ${data.totalVotes}`, margin, yPos)
+          pdf.text(`Total Options: ${data.rounds?.[0]?.tallies?.length || 0}`, margin + 80, yPos)
+          yPos += 5
+          
+          if (data.winner) {
+            pdf.text(`Winner: ${data.winner.label}`, margin, yPos)
+          }
+          pdf.text("Voting Method: Instant Runoff Voting (IRV)", margin + 80, yPos)
+          yPos += 10
+          
+          // Rounds section
+          pdf.setFontSize(12)
+          pdf.setFont("times", "bold")
+          pdf.text("Round-by-Round Results", margin, yPos)
+          yPos += 5
+          
+          pdf.setLineWidth(0.3)
+          pdf.setDrawColor(200, 200, 200)
+          pdf.line(margin, yPos, pageWidth - margin, yPos)
+          yPos += 6
+          
+          if (data.rounds && data.rounds.length > 0) {
+            data.rounds.forEach((round: any) => {
+              // Check if we need a new page
+              if (yPos > pageHeight - 60) {
+                pdf.addPage()
+                yPos = margin
+              }
+              
+              pdf.setFontSize(10)
+              pdf.setFont("times", "bold")
+              pdf.setTextColor(0, 0, 0)
+              let roundText = `Round ${round.roundNumber}`
+              if (round.eliminated) {
+                roundText += ` (Eliminated: ${round.eliminated})`
+              }
+              pdf.text(roundText, margin, yPos)
+              yPos += 5
+              
+              // Table header
+              pdf.setFontSize(9)
+              pdf.setFont("times", "bold")
+              pdf.text("Option", margin, yPos)
+              pdf.text("Votes", margin + 120, yPos, { align: "right" })
+              pdf.text("Percentage", margin + 150, yPos, { align: "right" })
+              yPos += 1
+              
+              pdf.setLineWidth(0.3)
+              pdf.setDrawColor(0, 0, 0)
+              pdf.line(margin, yPos, pageWidth - margin, yPos)
+              yPos += 4
+              
+              // Table rows
+              pdf.setFont("times", "normal")
+              const sortedTallies = [...round.tallies].sort((a: any, b: any) => Number(b.votes) - Number(a.votes))
+              
+              sortedTallies.forEach((tally: any) => {
+                // Check if we need a new page
+                if (yPos > pageHeight - 40) {
+                  pdf.addPage()
+                  yPos = margin
+                }
+                
+                const optionLabel = tally.option.label.length > 50 
+                  ? tally.option.label.substring(0, 47) + "..." 
+                  : tally.option.label
+                pdf.text(optionLabel, margin, yPos)
+                pdf.text(String(tally.votes), margin + 120, yPos, { align: "right" })
+                const pct = data.totalVotes > 0 ? ((tally.votes / data.totalVotes) * 100).toFixed(1) : "0.0"
+                pdf.text(`${pct}%`, margin + 150, yPos, { align: "right" })
+                yPos += 5
+              })
+              
+              yPos += 3
+            })
+          }
+          
+          // Footer
+          const footerY = pageHeight - 15
+          pdf.setFontSize(8)
+          pdf.setTextColor(100, 100, 100)
+          pdf.setFont("times", "normal")
+          pdf.text("Generated by BallotBox", pageWidth / 2, footerY, { align: "center" })
+          pdf.text(hostname, pageWidth / 2, footerY + 4, { align: "center" })
+          
+          pdf.save(`vote-${label}-results.pdf`)
+          button.textContent = "Download PDF"
+        } catch (error) {
+          button.textContent = "Download PDF"
+          console.error(error)
+          alert("Failed to generate PDF")
+        }
+      }
+      doc.body.appendChild(button)
     } catch (err) {
       setError((err as Error).message || "Failed to export PDF")
       console.error(err)
