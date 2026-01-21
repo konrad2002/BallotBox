@@ -799,7 +799,8 @@ export default function ManagePage() {
               pdf.setTextColor(0, 0, 0)
               let roundText = `Round ${round.roundNumber}`
               if (round.eliminated) {
-                roundText += ` (Eliminated: ${round.eliminated})`
+                const eliminatedLabel = typeof round.eliminated === 'object' ? round.eliminated.label : round.eliminated
+                roundText += ` (Eliminated: ${eliminatedLabel})`
               }
               pdf.text(roundText, margin, yPos)
               yPos += 5
