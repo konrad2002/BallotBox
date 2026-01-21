@@ -328,13 +328,28 @@ export default function ManagePage() {
                     ))}
                   </div>
                   <div className="mt-4 pt-4 border-t border-neutral-200 space-y-2">
-                    <Link href={`/vote/${vote.label}`}>
+                    <Link href={`/vote/${vote.label}`} className="block">
                       <Button variant="ghost" size="sm" className="w-full justify-center">
-                        Vote Link
+                        Vote
+                      </Button>
+                    </Link>
+                    <a
+                      href={`/api/votes/${vote.label}/qrcode`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block"
+                    >
+                      <Button variant="outline" size="sm" className="w-full justify-center">
+                        QR Code
+                      </Button>
+                    </a>
+                    <Link href={`/projector/${vote.label}`} className="block">
+                      <Button variant="outline" size="sm" className="w-full justify-center">
+                        Projector View
                       </Button>
                     </Link>
                     {!vote.isOpen && (
-                      <Link href={`/results/${vote.label}`}>
+                      <Link href={`/results/${vote.label}`} className="block">
                         <Button variant="outline" size="sm" className="w-full justify-center">
                           View Results
                         </Button>
