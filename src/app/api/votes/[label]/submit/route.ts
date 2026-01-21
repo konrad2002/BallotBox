@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma"
 
 export const dynamic = "force-dynamic"
 
-export async function POST(req: Request, { params }: { params: { label: string } }) {
-  const label = params.label?.toUpperCase()
+export async function POST(req: Request, { params }: { params: Promise<{ label: string }> }) {
+  const { label: rawLabel } = await params
+  const label = rawLabel?.toUpperCase()
   if (!label) return NextResponse.json({ error: "Missing label" }, { status: 400 })
 
   const body = await req.json().catch(() => ({}))

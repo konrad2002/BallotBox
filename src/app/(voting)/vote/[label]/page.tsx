@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,27 +13,11 @@ interface Option {
   label: string
 }
 
-// Mock data - in real app, this would come from server
-const MOCK_VOTES: Record<string, { title: string; options: Option[] }> = {
-  "ABC123": {
-    title: "Best Programming Language",
-    options: [
-      { id: "1", label: "TypeScript" },
-      { id: "2", label: "Python" },
-      { id: "3", label: "Rust" },
-      { id: "4", label: "Go" },
-      { id: "5", label: "Java" },
-    ]
-  },
-  "XYZ789": {
-    title: "Favorite Frontend Framework",
-    options: [
-      { id: "1", label: "React" },
-      { id: "2", label: "Vue" },
-      { id: "3", label: "Svelte" },
-      { id: "4", label: "Angular" },
-    ]
-  }
+interface VoteData {
+  label: string
+  title: string
+  isOpen: boolean
+  options: Option[]
 }
 
 type VoteStep = "select" | "order" | "submit"
@@ -47,42 +31,55 @@ export default function SpecificVotePage() {
   const params = useParams<{ label?: string | string[] }>()
   const rawLabel = params?.label
   const voteLabel = (Array.isArray(rawLabel) ? rawLabel[0] : rawLabel)?.toUpperCase() || ""
-  const vote = voteLabel ? MOCK_VOTES[voteLabel] : undefined
+  const [vote, setVote] = useState<VoteData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [step, setStep] = useState<VoteStep>("select")
   const [selectedOptions, setSelectedOptions] = useState<SelectedOption[]>([])
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  if (!vote) {
-    return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="py-12 text-center">
-            <p className="text-xl font-semibold text-neutral-900 mb-2">
-              Vote Not Found
-            </p>
-            <p className="text-neutral-600 mb-6">
-              The vote label &quot;{voteLabel}&quot; could not be found.
-            </p>
-            <Link href="/vote">
-              <Button variant="outline">Try Another Label</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  const fetchVote = useMemo(() => async () => {
+    if (!voteLabel) {
+      setError("Missing vote label")
+      setLoading(false)
+      return
+    }
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await fetch(`/api/votes/${voteLabel}`, { cache: "no-store" })
+      if (res.status === 404) {
+        setVote(null)
+        setError("Vote not found")
+        return
+      }
+      if (!res.ok) throw new Error("Failed to load vote")
+      const data = await res.json()
+      setVote(data)
+      setSelectedOptions([])
+      setStep("select")
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }, [voteLabel])
+
+  useEffect(() => {
+    fetchVote()
+  }, [fetchVote])
 
   const toggleOption = (option: Option) => {
-    const isSelected = selectedOptions.some(o => o.id === option.id)
-    if (isSelected) {
-      setSelectedOptions(selectedOptions.filter(o => o.id !== option.id))
-    } else {
-      setSelectedOptions([
-        ...selectedOptions,
-        { ...option, rank: selectedOptions.length + 1 }
-      ])
-    }
+    setSelectedOptions((prev) => {
+      const isSelected = prev.some((o) => o.id === option.id)
+      if (isSelected) {
+        const filtered = prev.filter((o) => o.id !== option.id)
+        return filtered.map((o, idx) => ({ ...o, rank: idx + 1 }))
+      }
+      return [...prev, { ...option, rank: prev.length + 1 }]
+    })
   }
 
   const moveOption = (index: number, direction: "up" | "down") => {
@@ -99,12 +96,35 @@ export default function SpecificVotePage() {
     setSelectedOptions(newOptions)
   }
 
-  const handleSubmit = () => {
-    setSubmitted(true)
-    // In real app, submit vote to server
-    setTimeout(() => {
-      router.push("/vote/success")
-    }, 1500)
+  const handleSubmit = async () => {
+    if (!vote || selectedOptions.length === 0) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const orderedOptionIds = [...selectedOptions]
+        .sort((a, b) => a.rank - b.rank)
+        .map((o) => o.id)
+
+      const res = await fetch(`/api/votes/${vote.label}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedOptionIds }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "Failed to submit vote")
+      }
+
+      setSubmitted(true)
+      setTimeout(() => {
+        router.push("/vote/success")
+      }, 500)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -134,130 +154,160 @@ export default function SpecificVotePage() {
           Back
         </Link>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{vote.title}</CardTitle>
-            <CardDescription>
-              Vote Label: <span className="font-mono font-semibold">{voteLabel}</span>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {step === "select" && (
-              <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <p className="text-sm text-blue-900">
-                    Select one or more options. You&apos;ll rank them in the next step.
-                  </p>
-                </div>
+        {error && (
+          <Card className="mb-4">
+            <CardContent className="py-6 text-center text-red-600">
+              {error}
+            </CardContent>
+          </Card>
+        )}
 
-                <div className="space-y-2">
-                  {vote.options.map(option => {
-                    const isSelected = selectedOptions.some(o => o.id === option.id)
-                    return (
+        {loading || !vote ? (
+          <Card>
+            <CardContent className="py-12 text-center text-neutral-600">
+              {error ? "Vote not found" : "Loading vote..."}
+            </CardContent>
+          </Card>
+        ) : !vote.isOpen ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{vote.title}</CardTitle>
+              <CardDescription>
+                Vote Label: <span className="font-mono font-semibold">{vote.label}</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="py-10 text-center text-neutral-600">
+              This vote is closed.
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>{vote.title}</CardTitle>
+              <CardDescription>
+                Vote Label: <span className="font-mono font-semibold">{vote.label}</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {step === "select" && (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                    <p className="text-sm text-blue-900">
+                      Select one or more options. You&apos;ll rank them in the next step.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {vote.options.map(option => {
+                      const isSelected = selectedOptions.some(o => o.id === option.id)
+                      return (
+                        <div
+                          key={option.id}
+                          onClick={() => toggleOption(option)}
+                          className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                            isSelected
+                              ? "border-blue-500 bg-blue-50"
+                              : "border-neutral-200 bg-white hover:border-neutral-300"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleOption(option)}
+                            className="pointer-events-none"
+                          />
+                          <span className="flex-1 text-neutral-900">{option.label}</span>
+                          {isSelected && (
+                            <span className="text-xs font-semibold bg-blue-500 text-white px-2 py-1 rounded">
+                              #{selectedOptions.find(o => o.id === option.id)?.rank}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="pt-4">
+                    <Button
+                      onClick={() => setStep("order")}
+                      disabled={selectedOptions.length === 0}
+                      className="w-full"
+                      size="lg"
+                    >
+                      Order Selection ({selectedOptions.length})
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {step === "order" && (
+                <div className="space-y-4">
+                  <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                    <p className="text-sm text-amber-900">
+                      Drag to reorder your choices. #1 is your top choice.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {selectedOptions.map((option, index) => (
                       <div
                         key={option.id}
-                        onClick={() => toggleOption(option)}
-                        className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          isSelected
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-neutral-200 bg-white hover:border-neutral-300"
-                        }`}
+                        className="flex items-center gap-3 p-4 bg-white border border-neutral-200 rounded-lg"
                       >
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleOption(option)}
-                          className="pointer-events-none"
-                        />
-                        <span className="flex-1 text-neutral-900">{option.label}</span>
-                        {isSelected && (
-                          <span className="text-xs font-semibold bg-blue-500 text-white px-2 py-1 rounded">
-                            #{selectedOptions.find(o => o.id === option.id)?.rank}
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-neutral-500 w-6 text-center">
+                            #{option.rank}
                           </span>
-                        )}
+                          <GripVertical className="w-4 h-4 text-neutral-400" />
+                        </div>
+                        <span className="flex-1 text-neutral-900">{option.label}</span>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => moveOption(index, "up")}
+                            disabled={index === 0}
+                            className="h-8 w-8 p-0"
+                          >
+                            ↑
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => moveOption(index, "down")}
+                            disabled={index === selectedOptions.length - 1}
+                            className="h-8 w-8 p-0"
+                          >
+                            ↓
+                          </Button>
+                        </div>
                       </div>
-                    )
-                  })}
-                </div>
+                    ))}
+                  </div>
 
-                <div className="pt-4">
-                  <Button
-                    onClick={() => setStep("order")}
-                    disabled={selectedOptions.length === 0}
-                    className="w-full"
-                    size="lg"
-                  >
-                    Order Selection ({selectedOptions.length})
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {step === "order" && (
-              <div className="space-y-4">
-                <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
-                  <p className="text-sm text-amber-900">
-                    Drag to reorder your choices. #1 is your top choice.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  {selectedOptions.map((option, index) => (
-                    <div
-                      key={option.id}
-                      className="flex items-center gap-3 p-4 bg-white border border-neutral-200 rounded-lg"
+                  <div className="space-y-2 pt-4">
+                    <Button
+                      onClick={handleSubmit}
+                      className="w-full"
+                      size="lg"
+                      disabled={submitting || selectedOptions.length === 0}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-neutral-500 w-6 text-center">
-                          #{option.rank}
-                        </span>
-                        <GripVertical className="w-4 h-4 text-neutral-400" />
-                      </div>
-                      <span className="flex-1 text-neutral-900">{option.label}</span>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => moveOption(index, "up")}
-                          disabled={index === 0}
-                          className="h-8 w-8 p-0"
-                        >
-                          ↑
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => moveOption(index, "down")}
-                          disabled={index === selectedOptions.length - 1}
-                          className="h-8 w-8 p-0"
-                        >
-                          ↓
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                      <Check className="w-4 h-4 mr-2" />
+                      {submitting ? "Submitting..." : "Submit Vote"}
+                    </Button>
+                    <Button
+                      onClick={() => setStep("select")}
+                      variant="outline"
+                      className="w-full"
+                      disabled={submitting}
+                    >
+                      Edit Selection
+                    </Button>
+                  </div>
                 </div>
-
-                <div className="space-y-2 pt-4">
-                  <Button
-                    onClick={handleSubmit}
-                    className="w-full"
-                    size="lg"
-                  >
-                    <Check className="w-4 h-4 mr-2" />
-                    Submit Vote
-                  </Button>
-                  <Button
-                    onClick={() => setStep("select")}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    Edit Selection
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

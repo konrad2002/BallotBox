@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma"
 
 export const dynamic = "force-dynamic"
 
-export async function GET(_req: Request, { params }: { params: { label: string } }) {
-  const label = params.label?.toUpperCase()
+export async function GET(_req: Request, { params }: { params: Promise<{ label: string }> }) {
+  const { label: rawLabel } = await params
+  const label = rawLabel?.toUpperCase()
   if (!label) {
     return NextResponse.json({ error: "Missing label" }, { status: 400 })
   }
@@ -28,8 +29,9 @@ export async function GET(_req: Request, { params }: { params: { label: string }
   })
 }
 
-export async function PATCH(req: Request, { params }: { params: { label: string } }) {
-  const label = params.label?.toUpperCase()
+export async function PATCH(req: Request, { params }: { params: Promise<{ label: string }> }) {
+  const { label: rawLabel } = await params
+  const label = rawLabel?.toUpperCase()
   if (!label) return NextResponse.json({ error: "Missing label" }, { status: 400 })
 
   const body = await req.json().catch(() => ({}))
@@ -49,8 +51,9 @@ export async function PATCH(req: Request, { params }: { params: { label: string 
   return NextResponse.json({ label: updated.label, isOpen: updated.isOpen })
 }
 
-export async function DELETE(_req: Request, { params }: { params: { label: string } }) {
-  const label = params.label?.toUpperCase()
+export async function DELETE(_req: Request, { params }: { params: Promise<{ label: string }> }) {
+  const { label: rawLabel } = await params
+  const label = rawLabel?.toUpperCase()
   if (!label) return NextResponse.json({ error: "Missing label" }, { status: 400 })
 
   const deleted = await prisma.vote.delete({ where: { label } }).catch(() => null)

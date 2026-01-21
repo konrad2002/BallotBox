@@ -7,17 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Plus, Trash2, Lock, Unlock } from "lucide-react"
-type ApiVote = {
-  label: string
-  title: string
-  isOpen: boolean
-  createdAt?: string
-  options: { id: string; label: string; order: number }[]
-}
+import { cn } from "@/lib/utils"
 
 interface Option {
   id: string
   label: string
+  order?: number
 }
 
 interface Vote {
@@ -25,18 +20,38 @@ interface Vote {
   title: string
   options: Option[]
   isOpen: boolean
-  createdAt: Date
+  createdAt: string
 }
 
 export default function ManagePage() {
   const [votes, setVotes] = useState<Vote[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
   const [showNewVoteForm, setShowNewVoteForm] = useState(false)
   const [newVoteTitle, setNewVoteTitle] = useState("")
   const [newOptions, setNewOptions] = useState<Option[]>([])
   const [newOptionInput, setNewOptionInput] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+
+  const loadVotes = useMemo(() => async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await fetch("/api/votes", { cache: "no-store" })
+      if (!res.ok) throw new Error("Failed to load votes")
+      const data = await res.json()
+      setVotes(data.votes ?? [])
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadVotes()
+  }, [loadVotes])
 
   const startNewVote = () => {
     setShowNewVoteForm(true)
@@ -44,34 +59,6 @@ export default function ManagePage() {
     setNewOptions([])
     setNewOptionInput("")
   }
-
-  // Load votes on mount
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true)
-      setError(null)
-      try {
-        const res = await fetch("/api/votes")
-        if (!res.ok) throw new Error(await res.text())
-        const data: ApiVote[] = await res.json()
-        setVotes(
-          data.map((v) => ({
-            label: v.label,
-            title: v.title,
-            isOpen: v.isOpen,
-            createdAt: v.createdAt ? new Date(v.createdAt) : new Date(),
-            options: v.options.map((o) => ({ id: o.id, label: o.label })),
-          }))
-        )
-      } catch (err) {
-        console.error(err)
-        setError("Could not load votes.")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    load()
-  }, [])
 
   const addOption = () => {
     if (newOptionInput.trim()) {
@@ -89,8 +76,7 @@ export default function ManagePage() {
 
   const createVote = async () => {
     if (!newVoteTitle.trim() || newOptions.length === 0) return
-    setIsSaving(true)
-    setError(null)
+    setSubmitting(true)
     try {
       const res = await fetch("/api/votes", {
         method: "POST",
@@ -100,57 +86,45 @@ export default function ManagePage() {
           options: newOptions.map((o) => o.label.trim()),
         }),
       })
-      if (!res.ok) throw new Error(await res.text())
-      const created: ApiVote = await res.json()
-      setVotes([
-        {
-          label: created.label,
-          title: created.title,
-          isOpen: created.isOpen,
-          createdAt: new Date(created.createdAt ?? Date.now()),
-          options: created.options.map((o) => ({ id: o.id, label: o.label })),
-        },
-        ...votes,
-      ])
+      if (!res.ok) throw new Error("Failed to create vote")
+      const created = await res.json()
+      setVotes((prev) => [created, ...prev])
       setShowNewVoteForm(false)
       setNewVoteTitle("")
       setNewOptions([])
     } catch (err) {
-      console.error(err)
-      setError("Could not create vote.")
+      setError((err as Error).message)
     } finally {
-      setIsSaving(false)
+      setSubmitting(false)
     }
   }
 
-  const toggleVoteStatus = async (label: string, current: boolean) => {
-    setError(null)
-    setVotes((prev) => prev.map((v) => (v.label === label ? { ...v, isOpen: !current } : v)))
+  const toggleVoteStatus = async (label: string) => {
+    const current = votes.find((v) => v.label === label)
+    if (!current) return
+    const nextOpen = !current.isOpen
+    setVotes((prev) => prev.map((v) => (v.label === label ? { ...v, isOpen: nextOpen } : v)))
     const res = await fetch(`/api/votes/${label}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isOpen: !current }),
+      body: JSON.stringify({ isOpen: nextOpen }),
     })
     if (!res.ok) {
-      setError("Could not update vote status.")
-      // revert
-      setVotes((prev) => prev.map((v) => (v.label === label ? { ...v, isOpen: current } : v)))
+      // revert if failed
+      setVotes((prev) => prev.map((v) => (v.label === label ? { ...v, isOpen: current.isOpen } : v)))
+      setError("Failed to update vote status")
     }
   }
 
   const deleteVote = async (label: string) => {
-    setError(null)
-    // optimistic remove
-    const previous = votes
-    setVotes((prev) => prev.filter((v) => v.label !== label))
+    const prev = votes
+    setVotes((p) => p.filter((v) => v.label !== label))
     const res = await fetch(`/api/votes/${label}`, { method: "DELETE" })
     if (!res.ok) {
-      setVotes(previous)
-      setError("Could not delete vote.")
+      setVotes(prev)
+      setError("Failed to delete vote")
     }
   }
-
-  const canSubmit = useMemo(() => newVoteTitle.trim() && newOptions.length >= 2 && !isSaving, [newVoteTitle, newOptions.length, isSaving])
 
   if (showNewVoteForm) {
     return (
@@ -236,10 +210,10 @@ export default function ManagePage() {
               <div className="flex gap-2 pt-4">
                 <Button
                   onClick={createVote}
-                  disabled={!canSubmit}
+                  disabled={submitting || !newVoteTitle.trim() || newOptions.length === 0}
                   className="flex-1"
                 >
-                  {isSaving ? "Creating..." : "Create Vote"}
+                  {submitting ? "Creating..." : "Create Vote"}
                 </Button>
                 <Button
                   onClick={() => setShowNewVoteForm(false)}
@@ -277,8 +251,17 @@ export default function ManagePage() {
             New Vote
           </Button>
         </div>
+        {error && (
+          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+            {error}
+          </div>
+        )}
 
-        {votes.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="py-12 text-center text-neutral-600">Loading votes...</CardContent>
+          </Card>
+        ) : votes.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <p className="text-neutral-600 mb-4">No votes created yet</p>
@@ -290,10 +273,10 @@ export default function ManagePage() {
             {votes.map(vote => (
               <Card key={vote.label} className="hover:shadow-md transition-shadow">
                 <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="mb-2">{vote.title}</CardTitle>
-                      <div className="flex items-center gap-2">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="mb-2 truncate" title={vote.title}>{vote.title}</CardTitle>
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge 
                           variant={vote.isOpen ? "default" : "secondary"}
                           className="font-mono"
@@ -303,6 +286,9 @@ export default function ManagePage() {
                         <Badge variant="outline">
                           {vote.options.length} option{vote.options.length !== 1 ? 's' : ''}
                         </Badge>
+                        <span className="text-xs text-neutral-500">
+                          {new Date(vote.createdAt).toLocaleString()}
+                        </span>
                       </div>
                     </div>
                     <div className="flex gap-2">

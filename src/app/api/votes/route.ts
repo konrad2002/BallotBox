@@ -5,26 +5,20 @@ import { generateVoteLabel } from "@/lib/utils"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  try {
-    const votes = await prisma.vote.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { options: { orderBy: { order: "asc" } } },
-      take: 100,
-    })
+  const votes = await prisma.vote.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { options: { orderBy: { order: "asc" } } },
+  })
 
-    return NextResponse.json(
-      votes.map((vote) => ({
-        label: vote.label,
-        title: vote.title,
-        isOpen: vote.isOpen,
-        createdAt: vote.createdAt,
-        options: vote.options.map((o) => ({ id: o.id, label: o.label, order: o.order })),
-      }))
-    )
-  } catch (error) {
-    console.error("GET /api/votes error", error)
-    return NextResponse.json({ error: "Unexpected error fetching votes." }, { status: 500 })
-  }
+  return NextResponse.json({
+    votes: votes.map((vote) => ({
+      label: vote.label,
+      title: vote.title,
+      isOpen: vote.isOpen,
+      createdAt: vote.createdAt,
+      options: vote.options.map((o) => ({ id: o.id, label: o.label, order: o.order })),
+    })),
+  })
 }
 
 export async function POST(req: Request) {
@@ -71,7 +65,8 @@ export async function POST(req: Request) {
       label: created.label,
       title: created.title,
       isOpen: created.isOpen,
-      options: created.options.map((o: any) => ({ id: o.id, label: o.label, order: o.order })),
+      createdAt: created.createdAt,
+      options: created.options.map((o) => ({ id: o.id, label: o.label, order: o.order })),
     })
   } catch (error) {
     console.error("POST /api/votes error", error)
