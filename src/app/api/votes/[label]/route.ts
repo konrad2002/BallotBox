@@ -50,7 +50,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ label:
   if (!vote) return NextResponse.json({ error: "Vote not found" }, { status: 404 })
 
   // If closing the vote, (re)calculate results
-  if (isOpen === false && vote.isOpen === true) {
+  if (!isOpen && vote.isOpen === true) {
     try {
             // Delete existing results if any
             if (vote.result) {
