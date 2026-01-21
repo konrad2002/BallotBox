@@ -251,13 +251,13 @@ export default function ManagePage() {
     header.appendChild(titleBox)
 
     const listWrapper = doc.createElement("div")
-    listWrapper.style.marginTop = "48px"
+    listWrapper.style.marginTop = "36px"
     listWrapper.style.display = "grid"
-    listWrapper.style.gap = "16px"
+    listWrapper.style.gap = "12px"
 
     const heading = doc.createElement("div")
     heading.textContent = "Top 5"
-    heading.style.fontSize = "38px"
+    heading.style.fontSize = "34px"
     heading.style.fontWeight = "800"
     heading.style.color = "#0f172a"
     heading.style.marginBottom = "12px"
@@ -272,7 +272,7 @@ export default function ManagePage() {
       const row = doc.createElement("div")
       row.style.display = "flex"
       row.style.flexDirection = "column"
-      row.style.padding = "20px 24px"
+      row.style.padding = "16px 20px"
       row.style.borderRadius = "12px"
       row.style.background = "#f8fafc"
       row.style.border = "3px solid #e2e8f0"
@@ -290,20 +290,20 @@ export default function ManagePage() {
 
       const rank = doc.createElement("div")
       rank.textContent = `#${idx + 1}`
-      rank.style.width = "68px"
-      rank.style.height = "68px"
+      rank.style.width = "60px"
+      rank.style.height = "60px"
       rank.style.borderRadius = "12px"
       rank.style.display = "flex"
       rank.style.alignItems = "center"
       rank.style.justifyContent = "center"
       rank.style.fontWeight = "900"
-      rank.style.fontSize = "32px"
+      rank.style.fontSize = "30px"
       rank.style.background = idx === 0 ? "#22c55e" : "#e2e8f0"
       rank.style.color = idx === 0 ? "#ffffff" : "#0f172a"
 
       const label = doc.createElement("div")
       label.textContent = item.label
-      label.style.fontSize = "28px"
+      label.style.fontSize = "26px"
       label.style.fontWeight = "800"
       label.style.color = "#0f172a"
 
@@ -312,7 +312,7 @@ export default function ManagePage() {
 
       const votes = doc.createElement("div")
       votes.textContent = `${item.votes} votes`
-      votes.style.fontSize = "26px"
+      votes.style.fontSize = "24px"
       votes.style.fontWeight = "700"
       votes.style.color = "#64748b"
 
@@ -323,8 +323,8 @@ export default function ManagePage() {
 
       if (item.votes > 0) {
         const barOuter = doc.createElement("div")
-        barOuter.style.marginTop = "12px"
-        barOuter.style.height = "16px"
+        barOuter.style.marginTop = "10px"
+        barOuter.style.height = "14px"
         barOuter.style.borderRadius = "999px"
         barOuter.style.background = "#e2e8f0"
 
