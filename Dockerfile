@@ -28,7 +28,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
-USER nextjs
+# Run migrations as root, then start server
 EXPOSE 3000
 ENV HOSTNAME=0.0.0.0
 ENTRYPOINT ["./docker-entrypoint.sh"]
