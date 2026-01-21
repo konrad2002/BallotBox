@@ -122,6 +122,11 @@ jobs:
           path: node_modules/
           key: ${{ runner.os }}-node_modules-${{ github.run_id }}
 
+      - name: Copy prisma directory
+        run: |
+          mkdir -p prisma
+          cp -r prisma/ .
+
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@v5

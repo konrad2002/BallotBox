@@ -1,19 +1,26 @@
 # Use lightweight Node.js base image
 FROM node:20-alpine AS runner
 
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl libc6-compat
+
 # Set working directory
 WORKDIR /app
 
-# Copy package.json and node_modules (for runtime deps)
-COPY package.json ./
+# Copy package.json and package-lock.json
+COPY package.json package-lock.json* ./
 COPY node_modules/ ./node_modules/
+COPY prisma/ ./prisma/
+
+# Generate Prisma client for Alpine Linux
+RUN npx prisma generate
 
 # Copy the built Next.js output
 COPY .next/ ./.next/
 COPY public/ ./public/
 
-# Optionally copy next.config.js if needed at runtime
-COPY next.config.js* ./
+# Copy next.config if needed at runtime
+COPY next.config.* ./
 
 # Set environment
 ENV NODE_ENV production
