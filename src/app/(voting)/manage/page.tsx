@@ -562,7 +562,8 @@ export default function ManagePage() {
           const eliminated = doc.createElement("span")
           eliminated.style.fontWeight = "normal"
           eliminated.style.color = "#cc0000"
-          eliminated.textContent = ` (Eliminated: ${round.eliminated})`
+          const eliminatedLabel = typeof round.eliminated === 'object' ? round.eliminated.label : round.eliminated
+          eliminated.textContent = ` (Eliminated: ${eliminatedLabel})`
           roundHeader.appendChild(eliminated)
         }
         roundDiv.appendChild(roundHeader)
