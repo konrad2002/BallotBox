@@ -136,6 +136,26 @@ export default function ManagePage() {
     return res.json()
   }
 
+  const getTopFiveFromResults = (data: any) => {
+    const rounds = data.rounds || []
+    const byOption = new Map<string, { label: string; votes: number }>()
+
+    rounds.forEach((round: any) => {
+      round.tallies?.forEach((t: any) => {
+        const label = t.option?.label || ""
+        const votes = Number(t.votes) || 0
+        const prev = byOption.get(label)
+        if (!prev || votes > prev.votes) {
+          byOption.set(label, { label, votes })
+        }
+      })
+    })
+
+    // Fallback: if no rounds, return empty
+    const sorted = Array.from(byOption.values()).sort((a, b) => b.votes - a.votes)
+    return sorted.slice(0, 5)
+  }
+
   const buildShareCard = (
     data: any,
     options?: { doc?: Document; mode?: "capture" | "preview"; attach?: boolean }
@@ -355,13 +375,7 @@ export default function ManagePage() {
   const downloadPng = async (label: string) => {
     try {
       const data = await fetchResults(label)
-      const finalRound = data.rounds?.[data.rounds.length - 1]
-      const tallies = finalRound?.tallies || []
-      const sorted = [...tallies].sort((a: any, b: any) => Number(b.votes) - Number(a.votes))
-      const topFive = sorted.slice(0, 5).map((t: any) => ({
-        label: t.option.label,
-        votes: t.votes,
-      }))
+      const topFive = getTopFiveFromResults(data)
 
       const win = window.open("", "_blank")
       if (!win) return
