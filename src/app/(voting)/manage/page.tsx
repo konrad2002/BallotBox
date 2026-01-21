@@ -1,13 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Plus, Trash2, Lock, Unlock } from "lucide-react"
-import { generateVoteLabel } from "@/lib/utils"
+type ApiVote = {
+  label: string
+  title: string
+  isOpen: boolean
+  createdAt?: string
+  options: { id: string; label: string; order: number }[]
+}
 
 interface Option {
   id: string
@@ -24,6 +30,9 @@ interface Vote {
 
 export default function ManagePage() {
   const [votes, setVotes] = useState<Vote[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [showNewVoteForm, setShowNewVoteForm] = useState(false)
   const [newVoteTitle, setNewVoteTitle] = useState("")
   const [newOptions, setNewOptions] = useState<Option[]>([])
@@ -35,6 +44,34 @@ export default function ManagePage() {
     setNewOptions([])
     setNewOptionInput("")
   }
+
+  // Load votes on mount
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const res = await fetch("/api/votes")
+        if (!res.ok) throw new Error(await res.text())
+        const data: ApiVote[] = await res.json()
+        setVotes(
+          data.map((v) => ({
+            label: v.label,
+            title: v.title,
+            isOpen: v.isOpen,
+            createdAt: v.createdAt ? new Date(v.createdAt) : new Date(),
+            options: v.options.map((o) => ({ id: o.id, label: o.label })),
+          }))
+        )
+      } catch (err) {
+        console.error(err)
+        setError("Could not load votes.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    load()
+  }, [])
 
   const addOption = () => {
     if (newOptionInput.trim()) {
@@ -50,33 +87,70 @@ export default function ManagePage() {
     setNewOptions(newOptions.filter(opt => opt.id !== id))
   }
 
-  const createVote = () => {
-    if (newVoteTitle.trim() && newOptions.length > 0) {
-      const vote: Vote = {
-        label: generateVoteLabel(),
-        title: newVoteTitle,
-        options: newOptions,
-        isOpen: true,
-        createdAt: new Date()
-      }
-      setVotes([...votes, vote])
+  const createVote = async () => {
+    if (!newVoteTitle.trim() || newOptions.length === 0) return
+    setIsSaving(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/votes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newVoteTitle.trim(),
+          options: newOptions.map((o) => o.label.trim()),
+        }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const created: ApiVote = await res.json()
+      setVotes([
+        {
+          label: created.label,
+          title: created.title,
+          isOpen: created.isOpen,
+          createdAt: new Date(created.createdAt ?? Date.now()),
+          options: created.options.map((o) => ({ id: o.id, label: o.label })),
+        },
+        ...votes,
+      ])
       setShowNewVoteForm(false)
       setNewVoteTitle("")
       setNewOptions([])
+    } catch (err) {
+      console.error(err)
+      setError("Could not create vote.")
+    } finally {
+      setIsSaving(false)
     }
   }
 
-  const toggleVoteStatus = (label: string) => {
-    setVotes(votes.map(vote => 
-      vote.label === label 
-        ? { ...vote, isOpen: !vote.isOpen }
-        : vote
-    ))
+  const toggleVoteStatus = async (label: string, current: boolean) => {
+    setError(null)
+    setVotes((prev) => prev.map((v) => (v.label === label ? { ...v, isOpen: !current } : v)))
+    const res = await fetch(`/api/votes/${label}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isOpen: !current }),
+    })
+    if (!res.ok) {
+      setError("Could not update vote status.")
+      // revert
+      setVotes((prev) => prev.map((v) => (v.label === label ? { ...v, isOpen: current } : v)))
+    }
   }
 
-  const deleteVote = (label: string) => {
-    setVotes(votes.filter(vote => vote.label !== label))
+  const deleteVote = async (label: string) => {
+    setError(null)
+    // optimistic remove
+    const previous = votes
+    setVotes((prev) => prev.filter((v) => v.label !== label))
+    const res = await fetch(`/api/votes/${label}`, { method: "DELETE" })
+    if (!res.ok) {
+      setVotes(previous)
+      setError("Could not delete vote.")
+    }
   }
+
+  const canSubmit = useMemo(() => newVoteTitle.trim() && newOptions.length >= 2 && !isSaving, [newVoteTitle, newOptions.length, isSaving])
 
   if (showNewVoteForm) {
     return (
@@ -162,10 +236,10 @@ export default function ManagePage() {
               <div className="flex gap-2 pt-4">
                 <Button
                   onClick={createVote}
-                  disabled={!newVoteTitle.trim() || newOptions.length === 0}
+                  disabled={!canSubmit}
                   className="flex-1"
                 >
-                  Create Vote
+                  {isSaving ? "Creating..." : "Create Vote"}
                 </Button>
                 <Button
                   onClick={() => setShowNewVoteForm(false)}
