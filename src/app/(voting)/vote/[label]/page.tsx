@@ -176,8 +176,15 @@ export default function SpecificVotePage() {
                 Vote Label: <span className="font-mono font-semibold">{vote.label}</span>
               </CardDescription>
             </CardHeader>
-            <CardContent className="py-10 text-center text-neutral-600">
-              This vote is closed.
+            <CardContent className="space-y-4">
+              <div className="py-6 text-center">
+                <p className="text-neutral-600 mb-4">This vote is closed.</p>
+                <Link href={`/results/${vote.label}`}>
+                  <Button size="lg">
+                    View Results
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
         ) : (

@@ -2,9 +2,17 @@
 
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from "next/link"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ArrowLeft, Trophy, Calendar, Users, CheckCircle2, Target } from "lucide-react"
+
+interface Option {
+  id: string
+  label: string
+  order: number
+}
 
 interface RoundTally {
   option: { id: string; label: string }
@@ -15,13 +23,21 @@ interface RoundTally {
 interface ResultRound {
   roundNumber: number
   eliminated: { id: string; label: string } | null
+  votesTransferred: number
   tallies: RoundTally[]
+  leadingVotes: number
+  hasWinner: boolean
 }
 
 interface ResultsData {
   voteLabel: string
   voteTitle: string
+  createdAt: string
+  closedAt: string
   totalVotes: number
+  totalOptions: number
+  majorityThreshold: number
+  allOptions: Option[]
   winner: { id: string; label: string } | null
   rounds: ResultRound[]
 }
@@ -58,106 +74,198 @@ export default function ResultsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Loading results...</p>
+      <div className="min-h-screen bg-neutral-50">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <Card>
+            <CardContent className="py-12 text-center text-neutral-600">
+              Loading results...
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-red-600 mb-4">{error}</p>
-            <Button onClick={() => router.push("/")}>Back to Home</Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-neutral-50">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Error</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-red-600 mb-4">{error}</p>
+              <Button onClick={() => router.push("/")}>Back to Home</Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
 
   if (!results) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">No results found</p>
+      <div className="min-h-screen bg-neutral-50">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <Card>
+            <CardContent className="py-12 text-center text-neutral-600">
+              No results found
+            </CardContent>
+          </Card>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-950 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-neutral-50">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-6"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </Link>
+
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="secondary">{results.voteLabel}</Badge>
-          </div>
-          <h1 className="text-4xl font-bold text-white mb-2">{results.voteTitle}</h1>
-          <p className="text-slate-400">
-            Instant Runoff Voting Results · {results.totalVotes} total votes
-          </p>
-        </div>
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <CardTitle className="text-2xl mb-2">{results.voteTitle}</CardTitle>
+                <CardDescription className="flex items-center gap-3 flex-wrap">
+                  <Badge variant="secondary" className="font-mono">{results.voteLabel}</Badge>
+                  <span>Instant Runoff Voting Results</span>
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm text-neutral-500">
+                  <Users className="w-4 h-4" />
+                  <span>Total Votes</span>
+                </div>
+                <p className="text-2xl font-bold text-neutral-900">{results.totalVotes}</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm text-neutral-500">
+                  <Target className="w-4 h-4" />
+                  <span>Majority Needed</span>
+                </div>
+                <p className="text-2xl font-bold text-neutral-900">{results.majorityThreshold}</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm text-neutral-500">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Total Options</span>
+                </div>
+                <p className="text-2xl font-bold text-neutral-900">{results.totalOptions}</p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm text-neutral-500">
+                  <Calendar className="w-4 h-4" />
+                  <span>Closed</span>
+                </div>
+                <p className="text-sm font-medium text-neutral-900">
+                  {new Date(results.closedAt).toLocaleDateString()}
+                </p>
+                <p className="text-xs text-neutral-500">
+                  {new Date(results.closedAt).toLocaleTimeString()}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Winner */}
         {results.winner && (
-          <Card className="mb-8 border-green-500/20 bg-green-950/20">
+          <Card className="mb-6 border-green-600 bg-green-50">
             <CardHeader>
-              <CardTitle className="text-green-400">🏆 Winner</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-green-900">
+                <Trophy className="w-5 h-5" />
+                Winner
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-green-300">{results.winner.label}</p>
+              <p className="text-xl font-semibold text-green-900">{results.winner.label}</p>
             </CardContent>
           </Card>
         )}
 
         {/* Rounds */}
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-white">Voting Rounds</h2>
+        <div className="space-y-4">
+          <h2 className="text-xl font-semibold text-neutral-900">Voting Rounds</h2>
 
           {results.rounds.map((round, idx) => (
-            <Card key={idx} className="bg-slate-800/50 border-slate-700">
+            <Card key={idx}>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">
-                    Round {round.roundNumber}
-                  </CardTitle>
-                  {round.eliminated && (
-                    <Badge variant="destructive">
-                      Eliminated: {round.eliminated.label}
-                    </Badge>
-                  )}
-                  {!round.eliminated && (
-                    <Badge variant="default" className="bg-green-600">
-                      Winner Found
-                    </Badge>
-                  )}
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <CardTitle className="text-lg">
+                      Round {round.roundNumber}
+                    </CardTitle>
+                    {round.hasWinner && (
+                      <Badge className="bg-green-600">
+                        Winner Found
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {round.eliminated && (
+                      <>
+                        <Badge variant="destructive">
+                          Eliminated: {round.eliminated.label}
+                        </Badge>
+                        {round.votesTransferred > 0 && (
+                          <Badge variant="outline">
+                            {round.votesTransferred} votes transferred
+                          </Badge>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
+                {round.leadingVotes >= results.majorityThreshold && (
+                  <CardDescription>
+                    Leading option reached majority threshold ({round.leadingVotes} ≥ {results.majorityThreshold})
+                  </CardDescription>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {round.tallies.map((tally) => (
-                    <div key={tally.option.id} className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <p className="font-medium text-white">{tally.option.label}</p>
-                      </div>
-                      <div className="w-48">
-                        <div className="w-full h-6 bg-slate-700 rounded overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all"
-                            style={{
-                              width: `${parseFloat(tally.percentage)}%`,
-                            }}
-                          />
+                  {round.tallies.map((tally, tallyIdx) => (
+                    <div key={tally.option.id} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-neutral-500 w-6">
+                            #{tallyIdx + 1}
+                          </span>
+                          <span className="font-medium text-neutral-900">{tally.option.label}</span>
+                          {results.winner?.id === tally.option.id && (
+                            <Trophy className="w-4 h-4 text-green-600" />
+                          )}
                         </div>
+                        <span className="font-mono text-sm text-neutral-600">
+                          {tally.votes} votes ({tally.percentage}%)
+                        </span>
                       </div>
-                      <div className="text-right w-24">
-                        <p className="font-mono text-white">
-                          {tally.votes} ({tally.percentage}%)
-                        </p>
+                      <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all rounded-full ${
+                            results.winner?.id === tally.option.id
+                              ? "bg-green-600"
+                              : round.eliminated?.id === tally.option.id
+                              ? "bg-red-500"
+                              : "bg-blue-500"
+                          }`}
+                          style={{
+                            width: `${parseFloat(tally.percentage)}%`,
+                          }}
+                        />
                       </div>
                     </div>
                   ))}
@@ -167,8 +275,49 @@ export default function ResultsPage() {
           ))}
         </div>
 
+        {/* Summary of All Options */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>All Options</CardTitle>
+            <CardDescription>Complete list of options in this vote</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {results.allOptions.map((option) => {
+                const isWinner = results.winner?.id === option.id
+                const eliminatedRound = results.rounds.find((r) => r.eliminated?.id === option.id)
+                
+                return (
+                  <div
+                    key={option.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      isWinner
+                        ? "border-green-600 bg-green-50"
+                        : "border-neutral-200 bg-neutral-50"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      {isWinner && <Trophy className="w-4 h-4 text-green-600" />}
+                      <span className={isWinner ? "font-semibold text-green-900" : "text-neutral-900"}>
+                        {option.label}
+                      </span>
+                    </span>
+                    {isWinner ? (
+                      <Badge className="bg-green-600">Winner</Badge>
+                    ) : eliminatedRound ? (
+                      <Badge variant="outline">
+                        Eliminated R{eliminatedRound.roundNumber}
+                      </Badge>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Back Button */}
-        <div className="mt-8">
+        <div className="mt-6">
           <Button onClick={() => router.push("/")} variant="outline">
             Back to Home
           </Button>

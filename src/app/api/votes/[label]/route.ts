@@ -49,9 +49,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ label:
 
   if (!vote) return NextResponse.json({ error: "Vote not found" }, { status: 404 })
 
-  // If closing the vote and no results exist, calculate them
-  if (!isOpen && vote.isOpen === true && !vote.result) {
+  // If closing the vote, (re)calculate results
+  if (isOpen === false && vote.isOpen === true) {
     try {
+            // Delete existing results if any
+            if (vote.result) {
+              await prisma.voteResult.delete({ where: { voteId: vote.id } })
+            }
+      
+            // Calculate and store new results
       const results = await calculateIRVResults(vote.id)
       await storeVotingResults(vote.id, results)
     } catch (error) {
