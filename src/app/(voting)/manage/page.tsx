@@ -147,9 +147,9 @@ export default function ManagePage() {
     container.style.height = "1200px"
     container.style.display = "flex"
     container.style.flexDirection = "column"
-    container.style.padding = "96px"
+    container.style.padding = "60px"
     container.style.boxSizing = "border-box"
-    container.style.borderRadius = "48px"
+    container.style.borderRadius = "0"
     container.style.background = "#ffffff"
     container.style.backgroundColor = "#ffffff"
     container.style.color = "#0f172a"
@@ -174,7 +174,6 @@ export default function ManagePage() {
       container.style.zIndex = "1"
       container.style.margin = "24px auto"
     }
-    container.style.boxShadow = "0 30px 80px rgba(0,0,0,0.45)"
 
     const header = doc.createElement("div")
     header.style.display = "flex"
@@ -183,50 +182,38 @@ export default function ManagePage() {
     header.style.gap = "16px"
 
     const titleBox = doc.createElement("div")
-    const labelBadge = doc.createElement("div")
-    labelBadge.textContent = data.voteLabel
-    labelBadge.style.display = "inline-flex"
-    labelBadge.style.alignItems = "center"
-    labelBadge.style.justifyContent = "center"
-    labelBadge.style.padding = "14px 24px"
-    labelBadge.style.borderRadius = "999px"
-    labelBadge.style.fontWeight = "800"
-    labelBadge.style.fontSize = "28px"
-    labelBadge.style.color = "#ffffff"
-    labelBadge.style.background = "#6366f1"
-
     const title = doc.createElement("div")
     title.textContent = data.voteTitle
-    title.style.fontSize = "64px"
+    title.style.fontSize = "68px"
     title.style.fontWeight = "900"
     title.style.color = "#0f172a"
-    title.style.marginTop = "20px"
+    title.style.marginTop = "0"
     title.style.lineHeight = "1.1"
 
     const stats = doc.createElement("div")
     stats.style.display = "flex"
-    stats.style.gap = "16px"
+    stats.style.gap = "12px"
     stats.style.flexWrap = "wrap"
-    stats.style.marginTop = "20px"
+    stats.style.marginTop = "16px"
 
     const stat = (label: string, value: string) => {
       const chip = doc.createElement("div")
       chip.style.display = "inline-flex"
       chip.style.alignItems = "center"
-      chip.style.gap = "10px"
-      chip.style.padding = "12px 20px"
+      chip.style.gap = "8px"
+      chip.style.padding = "10px 16px"
       chip.style.borderRadius = "999px"
       chip.style.background = "#f1f5f9"
       chip.style.border = "2px solid #e2e8f0"
 
       const v = doc.createElement("span")
       v.style.fontWeight = "800"
-      v.style.fontSize = "22px"
+      v.style.fontSize = "24px"
       v.style.color = "#0f172a"
       v.textContent = value
 
       const l = doc.createElement("span")
-      l.style.fontSize = "20px"
+      l.style.fontSize = "22px"
       l.style.color = "#64748b"
       l.textContent = label
 
@@ -238,23 +225,22 @@ export default function ManagePage() {
     stats.appendChild(stat("Total votes", String(data.totalVotes)))
     if (data.winnerLabel) stats.appendChild(stat("Winner", data.winnerLabel))
 
-    titleBox.appendChild(labelBadge)
     titleBox.appendChild(title)
     titleBox.appendChild(stats)
 
     header.appendChild(titleBox)
 
     const listWrapper = doc.createElement("div")
-    listWrapper.style.marginTop = "64px"
+    listWrapper.style.marginTop = "48px"
     listWrapper.style.display = "grid"
-    listWrapper.style.gap = "20px"
+    listWrapper.style.gap = "16px"
 
     const heading = doc.createElement("div")
     heading.textContent = "Top 5"
-    heading.style.fontSize = "36px"
+    heading.style.fontSize = "38px"
     heading.style.fontWeight = "800"
     heading.style.color = "#0f172a"
-    heading.style.marginBottom = "16px"
+    heading.style.marginBottom = "12px"
     listWrapper.appendChild(heading)
 
     const items = data.topFive && data.topFive.length > 0
@@ -266,8 +252,8 @@ export default function ManagePage() {
       const row = doc.createElement("div")
       row.style.display = "flex"
       row.style.flexDirection = "column"
-      row.style.padding = "24px 28px"
-      row.style.borderRadius = "20px"
+      row.style.padding = "20px 24px"
+      row.style.borderRadius = "12px"
       row.style.background = "#f8fafc"
       row.style.border = "3px solid #e2e8f0"
 
@@ -284,9 +270,9 @@ export default function ManagePage() {
 
       const rank = doc.createElement("div")
       rank.textContent = `#${idx + 1}`
-      rank.style.width = "72px"
-      rank.style.height = "72px"
-      rank.style.borderRadius = "18px"
+      rank.style.width = "68px"
+      rank.style.height = "68px"
+      rank.style.borderRadius = "12px"
       rank.style.display = "flex"
       rank.style.alignItems = "center"
       rank.style.justifyContent = "center"
@@ -313,27 +299,54 @@ export default function ManagePage() {
       top.appendChild(left)
       top.appendChild(votes)
 
-      const barOuter = doc.createElement("div")
-      barOuter.style.marginTop = "16px"
-      barOuter.style.height = "16px"
-      barOuter.style.borderRadius = "999px"
-      barOuter.style.background = "#e2e8f0"
-
-      const barInner = doc.createElement("div")
-      barInner.style.height = "100%"
-      barInner.style.borderRadius = "999px"
-      barInner.style.width = `${Math.max(4, Math.round((item.votes / maxVotes) * 100))}%`
-      barInner.style.background = idx === 0 ? "#22c55e" : "#6366f1"
-      barInner.style.boxShadow = idx === 0 ? "0 4px 12px rgba(34,197,94,0.3)" : "0 4px 12px rgba(99,102,241,0.3)"
-
-      barOuter.appendChild(barInner)
       row.appendChild(top)
-      row.appendChild(barOuter)
+
+      if (item.votes > 0) {
+        const barOuter = doc.createElement("div")
+        barOuter.style.marginTop = "12px"
+        barOuter.style.height = "16px"
+        barOuter.style.borderRadius = "999px"
+        barOuter.style.background = "#e2e8f0"
+
+        const barInner = doc.createElement("div")
+        barInner.style.height = "100%"
+        barInner.style.borderRadius = "999px"
+        barInner.style.width = `${Math.max(4, Math.round((item.votes / maxVotes) * 100))}%`
+        barInner.style.background = idx === 0 ? "#22c55e" : "#6366f1"
+        barInner.style.boxShadow = idx === 0 ? "0 4px 12px rgba(34,197,94,0.3)" : "0 4px 12px rgba(99,102,241,0.3)"
+
+        barOuter.appendChild(barInner)
+        row.appendChild(barOuter)
+      }
       listWrapper.appendChild(row)
     })
 
+    const footer = doc.createElement("div")
+    footer.style.marginTop = "auto"
+    footer.style.paddingTop = "32px"
+    footer.style.display = "flex"
+    footer.style.flexDirection = "column"
+    footer.style.alignItems = "center"
+    footer.style.gap = "4px"
+
+    const toolName = doc.createElement("div")
+    toolName.textContent = "BallotBox"
+    toolName.style.fontSize = "24px"
+    toolName.style.fontWeight = "800"
+    toolName.style.color = "#0f172a"
+
+    const domain = doc.createElement("div")
+    domain.textContent = typeof window !== 'undefined' ? window.location.hostname : 'ballotbox.app'
+    domain.style.fontSize = "20px"
+    domain.style.fontWeight = "600"
+    domain.style.color = "#64748b"
+
+    footer.appendChild(toolName)
+    footer.appendChild(domain)
+
     container.appendChild(header)
     container.appendChild(listWrapper)
+    container.appendChild(footer)
     if (options?.attach !== false) {
       doc.body.appendChild(container)
     }
@@ -386,7 +399,7 @@ export default function ManagePage() {
         votes: t.votes,
       }))
 
-      const win = window.open("", "_blank", "width=1300,height=1600")
+      const win = window.open("", "_blank")
       if (!win) return
       const doc = win.document
       doc.open()
@@ -443,14 +456,23 @@ export default function ManagePage() {
       button.onclick = async () => {
         try {
           button.textContent = "Preparing..."
+          // Temporarily remove margin for capture
+          const originalMargin = card.style.margin
+          card.style.margin = "0"
+          
           const dataUrl = await htmlToImage.toPng(card, {
             cacheBust: true,
             skipFonts: true,
             width: 1200,
             height: 1200,
+            canvasWidth: 1200,
+            canvasHeight: 1200,
             backgroundColor: "#ffffff",
-            pixelRatio: 2,
           })
+          
+          // Restore margin
+          card.style.margin = originalMargin
+          
           const link = doc.createElement("a")
           link.download = `vote-${label}-results.png`
           link.href = dataUrl
