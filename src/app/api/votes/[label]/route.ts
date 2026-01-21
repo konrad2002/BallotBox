@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { calculateIRVResults, storeVotingResults } from "@/lib/voting-calculator"
 
 export const dynamic = "force-dynamic"
 
@@ -41,12 +42,31 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ label:
     return NextResponse.json({ error: "isOpen boolean required" }, { status: 400 })
   }
 
+  const vote = await prisma.vote.findUnique({
+    where: { label },
+    include: { result: true },
+  })
+
+  if (!vote) return NextResponse.json({ error: "Vote not found" }, { status: 404 })
+
+  // If closing the vote and no results exist, calculate them
+  if (!isOpen && vote.isOpen === true && !vote.result) {
+    try {
+      const results = await calculateIRVResults(vote.id)
+      await storeVotingResults(vote.id, results)
+    } catch (error) {
+      console.error("Error calculating results:", error)
+      return NextResponse.json(
+        { error: "Failed to calculate results" },
+        { status: 500 }
+      )
+    }
+  }
+
   const updated = await prisma.vote.update({
     where: { label },
     data: { isOpen },
-  }).catch(() => null)
-
-  if (!updated) return NextResponse.json({ error: "Vote not found" }, { status: 404 })
+  })
 
   return NextResponse.json({ label: updated.label, isOpen: updated.isOpen })
 }

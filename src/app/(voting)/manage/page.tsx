@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Plus, Trash2, Lock, Unlock } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 interface Option {
   id: string
@@ -328,12 +327,19 @@ export default function ManagePage() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-4 pt-4 border-t border-neutral-200">
+                  <div className="mt-4 pt-4 border-t border-neutral-200 space-y-2">
                     <Link href={`/vote/${vote.label}`}>
                       <Button variant="ghost" size="sm" className="w-full justify-center">
                         Vote Link
                       </Button>
                     </Link>
+                    {!vote.isOpen && (
+                      <Link href={`/results/${vote.label}`}>
+                        <Button variant="outline" size="sm" className="w-full justify-center">
+                          View Results
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </CardContent>
               </Card>

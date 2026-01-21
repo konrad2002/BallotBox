@@ -19,15 +19,19 @@ model Vote {
   updatedAt   DateTime      @updatedAt
   options     VoteOption[]
   submissions Submission[]
+  result      VoteResult?
 }
 
 model VoteOption {
-  id     String @id @default(uuid())
-  label  String
-  order  Int
-  vote   Vote   @relation(fields: [voteId], references: [id], onDelete: Cascade)
-  voteId String
-  ranks  SubmissionRank[]
+  id               String @id @default(uuid())
+  label            String
+  order            Int
+  vote             Vote   @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  voteId           String
+  ranks            SubmissionRank[]
+  winnerOf         VoteResult?      @relation("winner")
+  eliminatedInRound ResultRound?     @relation("eliminated")
+  roundTallies     RoundTally[]
 }
 
 model Submission {
@@ -48,4 +52,38 @@ model SubmissionRank {
   optionId      String
 
   @@unique([submissionId, rank])
+}
+
+model VoteResult {
+  id           String              @id @default(uuid())
+  vote         Vote                @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  voteId       String              @unique
+  totalVotes   Int
+  winner       VoteOption?         @relation("winner", fields: [winnerId], references: [id])
+  winnerId     String?             @unique
+  rounds       ResultRound[]
+  createdAt    DateTime            @default(now())
+}
+
+model ResultRound {
+  id              String              @id @default(uuid())
+  result          VoteResult          @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  resultId        String
+  roundNumber     Int
+  eliminated      VoteOption?         @relation("eliminated", fields: [eliminatedId], references: [id])
+  eliminatedId    String?             @unique
+  tallies         RoundTally[]
+
+  @@unique([resultId, roundNumber])
+}
+
+model RoundTally {
+  id        String      @id @default(uuid())
+  round     ResultRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundId   String
+  option    VoteOption  @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  optionId  String
+  votes     Int
+
+  @@unique([roundId, optionId])
 }
