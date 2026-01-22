@@ -1,5 +1,20 @@
+import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+
+const VOTED_COOKIE = "ballotbox-voted"
+
+const readVoted = async () => {
+  const store = await cookies()
+  const raw = store.get(VOTED_COOKIE)?.value
+  if (!raw) return [] as string[]
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.map((v) => v?.toString()).filter(Boolean).slice(0, 200) : []
+  } catch {
+    return []
+  }
+}
 
 export const dynamic = "force-dynamic"
 
@@ -50,9 +65,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ label: 
     include: { ranks: true },
   })
 
-  return NextResponse.json({
+  const voted = Array.from(new Set([...(await readVoted()), vote.label]))
+
+  const response = NextResponse.json({
     submissionId: created.id,
     voteLabel: vote.label,
     rankCount: created.ranks.length,
   })
+
+  response.cookies.set(VOTED_COOKIE, JSON.stringify(voted), {
+    // readable on client to show "already voted" note
+    httpOnly: false,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    secure: process.env.NODE_ENV === "production",
+  })
+
+  return response
 }

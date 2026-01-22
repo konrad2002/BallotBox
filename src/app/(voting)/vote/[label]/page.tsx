@@ -39,6 +39,25 @@ export default function SpecificVotePage() {
   const [selectedOptions, setSelectedOptions] = useState<SelectedOption[]>([])
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [hasVoted, setHasVoted] = useState(false)
+
+  const votedCookieName = "ballotbox-voted"
+
+  const checkHasVoted = useMemo(() => () => {
+    if (!voteLabel) return false
+    if (typeof document === "undefined") return false
+    const entry = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith(`${votedCookieName}=`))
+    if (!entry) return false
+    const raw = entry.split("=")[1]
+    try {
+      const labels = JSON.parse(decodeURIComponent(raw))
+      return Array.isArray(labels) && labels.includes(voteLabel)
+    } catch {
+      return false
+    }
+  }, [voteLabel])
 
   const fetchVote = useMemo(() => async () => {
     if (!voteLabel) {
@@ -70,6 +89,10 @@ export default function SpecificVotePage() {
   useEffect(() => {
     fetchVote()
   }, [fetchVote])
+
+  useEffect(() => {
+    setHasVoted(checkHasVoted())
+  }, [checkHasVoted])
 
   const toggleOption = (option: Option) => {
     setSelectedOptions((prev) => {
@@ -117,6 +140,7 @@ export default function SpecificVotePage() {
       }
 
       setSubmitted(true)
+      setHasVoted(true)
       setTimeout(() => {
         router.push("/vote/success")
       }, 500)
@@ -196,6 +220,11 @@ export default function SpecificVotePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {hasVoted && (
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-sm text-amber-900">
+                  You already voted on this ballot from this browser. You can still submit again if needed (for example, helping a friend on your device).
+                </div>
+              )}
               {step === "select" && (
                 <div className="space-y-4">
                   <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
