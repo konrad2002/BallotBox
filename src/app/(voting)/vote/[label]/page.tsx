@@ -40,6 +40,7 @@ export default function SpecificVotePage() {
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
 
   const votedCookieName = "ballotbox-voted"
 
@@ -117,6 +118,25 @@ export default function SpecificVotePage() {
       opt.rank = idx + 1
     })
     setSelectedOptions(newOptions)
+  }
+
+  const handleDragStart = (index: number) => {
+    setDragIndex(index)
+  }
+
+  const handleDragOver = (index: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    if (dragIndex === null || dragIndex === index) return
+    const reordered = [...selectedOptions]
+    const [moved] = reordered.splice(dragIndex, 1)
+    reordered.splice(index, 0, moved)
+    reordered.forEach((opt, idx) => { opt.rank = idx + 1 })
+    setSelectedOptions(reordered)
+    setDragIndex(index)
+  }
+
+  const handleDragEnd = () => {
+    setDragIndex(null)
   }
 
   const handleSubmit = async (abstain = false) => {
@@ -302,6 +322,10 @@ export default function SpecificVotePage() {
                       <div
                         key={option.id}
                         className="flex items-center gap-3 p-4 bg-white border border-neutral-200 rounded-lg"
+                        draggable
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={(e) => handleDragOver(index, e)}
+                        onDragEnd={handleDragEnd}
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-neutral-500 w-6 text-center">
