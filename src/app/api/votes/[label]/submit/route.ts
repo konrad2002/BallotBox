@@ -24,10 +24,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ label: 
   if (!label) return NextResponse.json({ error: "Missing label" }, { status: 400 })
 
   const body = await req.json().catch(() => ({}))
-  const orderedOptionIds: string[] | undefined = body?.orderedOptionIds
+  const abstain = body?.abstain === true
+  const orderedOptionIds: string[] = Array.isArray(body?.orderedOptionIds) ? body.orderedOptionIds : []
   const fingerprint: string | undefined = body?.fingerprint
 
-  if (!orderedOptionIds || !Array.isArray(orderedOptionIds) || orderedOptionIds.length === 0) {
+  if (!abstain && orderedOptionIds.length === 0) {
     return NextResponse.json({ error: "orderedOptionIds (array) is required" }, { status: 400 })
   }
 
@@ -41,20 +42,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ label: 
 
   const optionIds = vote.options.map((o: any) => o.id)
 
-  // Ensure submitted ids belong to this vote and are unique
-  const submittedSet = new Set<string>()
-  for (const id of orderedOptionIds) {
-    if (!optionIds.includes(id)) {
-      return NextResponse.json({ error: "Invalid option id in submission" }, { status: 400 })
+  if (!abstain) {
+    // Ensure submitted ids belong to this vote and are unique
+    const submittedSet = new Set<string>()
+    for (const id of orderedOptionIds) {
+      if (!optionIds.includes(id)) {
+        return NextResponse.json({ error: "Invalid option id in submission" }, { status: 400 })
+      }
+      if (submittedSet.has(id)) {
+        return NextResponse.json({ error: "Duplicate option id in submission" }, { status: 400 })
+      }
+      submittedSet.add(id)
     }
-    if (submittedSet.has(id)) {
-      return NextResponse.json({ error: "Duplicate option id in submission" }, { status: 400 })
-    }
-    submittedSet.add(id)
   }
 
   // Build rank records
-  const ranks = orderedOptionIds.map((id, index) => ({ optionId: id, rank: index + 1 }))
+  const ranks = abstain
+    ? []
+    : orderedOptionIds.map((id, index) => ({ optionId: id, rank: index + 1 }))
 
   const created = await prisma.submission.create({
     data: {
@@ -71,6 +76,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ label: 
     submissionId: created.id,
     voteLabel: vote.label,
     rankCount: created.ranks.length,
+    abstain,
   })
 
   response.cookies.set(VOTED_COOKIE, JSON.stringify(voted), {

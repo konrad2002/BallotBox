@@ -119,19 +119,22 @@ export default function SpecificVotePage() {
     setSelectedOptions(newOptions)
   }
 
-  const handleSubmit = async () => {
-    if (!vote || selectedOptions.length === 0) return
+  const handleSubmit = async (abstain = false) => {
+    if (!vote) return
+    if (!abstain && selectedOptions.length === 0) return
     setSubmitting(true)
     setError(null)
     try {
-      const orderedOptionIds = [...selectedOptions]
-        .sort((a, b) => a.rank - b.rank)
-        .map((o) => o.id)
+      const orderedOptionIds = abstain
+        ? []
+        : [...selectedOptions]
+            .sort((a, b) => a.rank - b.rank)
+            .map((o) => o.id)
 
       const res = await fetch(`/api/votes/${vote.label}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderedOptionIds }),
+        body: JSON.stringify({ orderedOptionIds, abstain }),
       })
 
       if (!res.ok) {
@@ -229,7 +232,7 @@ export default function SpecificVotePage() {
                 <div className="space-y-4">
                   <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                     <p className="text-sm text-blue-900">
-                      Select one or more options. You&apos;ll rank them in the next step.
+                      Select one or more options. You&apos;ll rank them in the next step. If you prefer to abstain, submit without preferences.
                     </p>
                   </div>
 
@@ -271,6 +274,17 @@ export default function SpecificVotePage() {
                     >
                       Order Selection ({selectedOptions.length})
                     </Button>
+                    <div className="mt-3 text-center">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        size="lg"
+                        onClick={() => handleSubmit(true)}
+                        disabled={submitting}
+                      >
+                        Submit Abstention (no preferences)
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -322,7 +336,7 @@ export default function SpecificVotePage() {
 
                   <div className="space-y-2 pt-4">
                     <Button
-                      onClick={handleSubmit}
+                      onClick={() => handleSubmit(false)}
                       className="w-full"
                       size="lg"
                       disabled={submitting || selectedOptions.length === 0}
@@ -337,6 +351,14 @@ export default function SpecificVotePage() {
                       disabled={submitting}
                     >
                       Edit Selection
+                    </Button>
+                    <Button
+                      onClick={() => handleSubmit(true)}
+                      variant="secondary"
+                      className="w-full"
+                      disabled={submitting}
+                    >
+                      Submit Abstention (no preferences)
                     </Button>
                   </div>
                 </div>
