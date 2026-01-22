@@ -1,11 +1,34 @@
+import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { generateVoteLabel } from "@/lib/utils"
 
+const OWNER_COOKIE_NAME = "ballotbox-owned-votes"
+
+const getOwnedLabels = async () => {
+  const store = await cookies()
+  const raw = store.get(OWNER_COOKIE_NAME)?.value
+  if (!raw) return [] as string[]
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed)
+      ? parsed.map((v) => v?.toString().trim()).filter(Boolean).slice(0, 200)
+      : []
+  } catch {
+    return []
+  }
+}
+
 export const dynamic = "force-dynamic"
 
 export async function GET() {
+  const ownedLabels = await getOwnedLabels()
+  if (ownedLabels.length === 0) {
+    return NextResponse.json({ votes: [] })
+  }
+
   const votes = await prisma.vote.findMany({
+    where: { label: { in: ownedLabels } },
     orderBy: { createdAt: "desc" },
     include: {
       options: { orderBy: { order: "asc" } },
@@ -65,7 +88,9 @@ export async function POST(req: Request) {
       include: { options: true },
     })
 
-    return NextResponse.json({
+    const ownedLabels = Array.from(new Set([...(await getOwnedLabels()), created.label]))
+
+    const response = NextResponse.json({
       label: created.label,
       title: created.title,
       isOpen: created.isOpen,
@@ -73,6 +98,16 @@ export async function POST(req: Request) {
       voterCount: 0,
       options: created.options.map((o) => ({ id: o.id, label: o.label, order: o.order })),
     })
+
+    response.cookies.set(OWNER_COOKIE_NAME, JSON.stringify(ownedLabels), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      secure: process.env.NODE_ENV === "production",
+    })
+
+    return response
   } catch (error) {
     console.error("POST /api/votes error", error)
     return NextResponse.json({ error: "Unexpected error creating vote." }, { status: 500 })
