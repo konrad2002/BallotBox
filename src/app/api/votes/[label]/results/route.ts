@@ -31,6 +31,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ label: 
 
   if (!vote) return NextResponse.json({ error: "Vote not found" }, { status: 404 })
 
+  if (vote.isOpen) {
+    return NextResponse.json({ error: "Results are available only after the vote is closed." }, { status: 403 })
+  }
+
   if (!vote.result) {
     return NextResponse.json({ error: "Results not yet calculated" }, { status: 404 })
   }

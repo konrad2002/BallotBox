@@ -164,9 +164,6 @@ export default function SpecificVotePage() {
 
       setSubmitted(true)
       setHasVoted(true)
-      setTimeout(() => {
-        router.push("/vote/success")
-      }, 500)
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -178,12 +175,27 @@ export default function SpecificVotePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <Card className="w-full max-w-md">
-          <CardContent className="py-12 text-center">
-            <div className="text-5xl mb-4">✓</div>
-            <h2 className="text-xl font-semibold mb-2">Vote Submitted!</h2>
+          <CardContent className="py-12 text-center space-y-4">
+            <div className="text-5xl mb-2">✓</div>
+            <h2 className="text-xl font-semibold">Vote Submitted!</h2>
             <p className="text-neutral-600">
-              Your ranked vote has been recorded.
+              Your vote has been recorded.
             </p>
+            {voteLabel && (
+              <div className="pt-2 space-y-2">
+                <Link href={`/results/${voteLabel}`}>
+                  <Button className="w-full">View Results</Button>
+                </Link>
+                {vote?.isOpen && (
+                  <div className="text-sm text-neutral-500">
+                    Results will appear after the vote is closed; you can check back anytime.
+                  </div>
+                )}
+                <Link href="/">
+                  <Button variant="outline" className="w-full">Return Home</Button>
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

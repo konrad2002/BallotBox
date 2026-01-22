@@ -56,11 +56,10 @@ export default function ResultsPage() {
     const fetchResults = async () => {
       try {
         const res = await fetch(`/api/votes/${label}/results`)
+        const data = await res.json().catch(() => null)
         if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || "Failed to fetch results")
+          throw new Error(data?.error || "Failed to fetch results")
         }
-        const data = await res.json()
         setResults(data)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error")
@@ -96,6 +95,7 @@ export default function ResultsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-red-600 mb-4">{error}</p>
+              <p className="text-neutral-600 mb-4">If the vote is still open, results will appear after it is closed.</p>
               <Button onClick={() => router.push("/")}>Back to Home</Button>
             </CardContent>
           </Card>
