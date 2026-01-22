@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [ "master", "develop" ]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to rebuild (e.g., v1.0)'
+        required: false
+        type: string
 
 env:
   NODE_VERSION: 22.x
@@ -114,6 +119,9 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}},value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
 
       - name: Use cached .next output
         uses: actions/cache/restore@v4
