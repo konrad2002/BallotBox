@@ -7,7 +7,10 @@ export const dynamic = "force-dynamic"
 export async function GET() {
   const votes = await prisma.vote.findMany({
     orderBy: { createdAt: "desc" },
-    include: { options: { orderBy: { order: "asc" } } },
+    include: {
+      options: { orderBy: { order: "asc" } },
+      _count: { select: { submissions: true } },
+    },
   })
 
   return NextResponse.json({
@@ -16,6 +19,7 @@ export async function GET() {
       title: vote.title,
       isOpen: vote.isOpen,
       createdAt: vote.createdAt,
+      voterCount: vote._count.submissions,
       options: vote.options.map((o) => ({ id: o.id, label: o.label, order: o.order })),
     })),
   })
@@ -66,6 +70,7 @@ export async function POST(req: Request) {
       title: created.title,
       isOpen: created.isOpen,
       createdAt: created.createdAt,
+      voterCount: 0,
       options: created.options.map((o) => ({ id: o.id, label: o.label, order: o.order })),
     })
   } catch (error) {

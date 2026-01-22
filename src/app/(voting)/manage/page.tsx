@@ -1,6 +1,6 @@
 "use client"
 
-import {useEffect, useMemo, useState} from "react"
+import {useEffect, useCallback, useState} from "react"
 import Link from "next/link"
 import {Button} from "@/components/ui/button"
 import {Input} from "@/components/ui/input"
@@ -22,6 +22,7 @@ interface Vote {
   options: Option[]
   isOpen: boolean
   createdAt: string
+  voterCount?: number
 }
 
 export default function ManagePage() {
@@ -35,9 +36,9 @@ export default function ManagePage() {
   const [newOptionInput, setNewOptionInput] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
-  const loadVotes = useMemo(() => async () => {
+  const loadVotes = useCallback(async (opts?: { silent?: boolean }) => {
     try {
-      setLoading(true)
+      if (!opts?.silent) setLoading(true)
       setError(null)
       const res = await fetch("/api/votes", { cache: "no-store" })
       if (!res.ok) throw new Error("Failed to load votes")
@@ -46,12 +47,19 @@ export default function ManagePage() {
     } catch (err) {
       setError((err as Error).message)
     } finally {
-      setLoading(false)
+      if (!opts?.silent) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     loadVotes()
+  }, [loadVotes])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      loadVotes({ silent: true }).catch(() => {})
+    }, 8000)
+    return () => clearInterval(id)
   }, [loadVotes])
 
   const startNewVote = () => {
@@ -1044,6 +1052,9 @@ export default function ManagePage() {
                         </Badge>
                         <Badge variant="outline">
                           {vote.options.length} option{vote.options.length !== 1 ? 's' : ''}
+                        </Badge>
+                        <Badge variant="outline">
+                          {vote.voterCount ?? 0} voter{(vote.voterCount ?? 0) === 1 ? '' : 's'}
                         </Badge>
                         <span className="text-xs text-neutral-500">
                           {new Date(vote.createdAt).toLocaleString()}
