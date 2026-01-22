@@ -51,15 +51,24 @@ export async function calculateIRVResults(voteId: string) {
   const rounds: RoundResult[] = []
   let eliminated = new Set<string>()
   let currentBallots = ballots
+  
+  // Total submissions including abstentions for majority calculation
+  const totalSubmissions = ballots.length
+  // Ballots with preferences (excluding abstentions)
+  const ballotsWithPreferences = ballots.filter((b) => b.preferences.length > 0)
 
   // IRV algorithm: repeat until a winner or all tied
-  while (eliminated.size < optionIds.size - 1) {
+  while (true) {
     const remaining = Array.from(optionIds).filter((id) => !eliminated.has(id))
 
     if (remaining.length === 0) break
     if (remaining.length === 1) {
+      // Last remaining option wins
+      const actualVotes = ballotsWithPreferences.filter((b) => 
+        b.preferences.some((p) => remaining.includes(p.optionId))
+      ).length
       rounds.push({
-        tallyByOption: new Map([[remaining[0], currentBallots.length]]),
+        tallyByOption: new Map([[remaining[0], actualVotes]]),
         eliminatedOption: null,
         winner: remaining[0],
       })
@@ -70,7 +79,7 @@ export async function calculateIRVResults(voteId: string) {
     const tally = new Map<string, number>()
     remaining.forEach((id) => tally.set(id, 0))
 
-    for (const ballot of currentBallots) {
+    for (const ballot of ballotsWithPreferences) {
       const firstPreference = ballot.preferences.find(
         (p) => remaining.includes(p.optionId)
       )
@@ -81,7 +90,8 @@ export async function calculateIRVResults(voteId: string) {
 
     const tallyArray = Array.from(tally.entries())
     const maxVotes = Math.max(...tallyArray.map((t) => t[1]))
-    const majority = Math.ceil(currentBallots.length / 2)
+    // Majority based on valid (non-abstention) ballots
+    const majority = Math.ceil(ballotsWithPreferences.length / 2)
 
     // Check if we have a winner
     const winners = tallyArray.filter((t) => t[1] === maxVotes && t[1] >= majority)
