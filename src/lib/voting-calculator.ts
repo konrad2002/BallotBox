@@ -1,4 +1,4 @@
-import { prisma } from "./prisma"
+import {prisma} from "./prisma"
 
 interface BallotRank {
   submissionId: string
@@ -50,10 +50,7 @@ export async function calculateIRVResults(voteId: string) {
   const optionIds = new Set(vote.options.map((o) => o.id))
   const rounds: RoundResult[] = []
   let eliminated = new Set<string>()
-  let currentBallots = ballots
-  
   // Total submissions including abstentions for majority calculation
-  const totalSubmissions = ballots.length
   // Ballots with preferences (excluding abstentions)
   const ballotsWithPreferences = ballots.filter((b) => b.preferences.length > 0)
 
@@ -150,7 +147,7 @@ export async function storeVotingResults(
   if (!vote) throw new Error("Vote not found")
 
   // Create VoteResult record
-  const voteResult = await prisma.voteResult.create({
+  return prisma.voteResult.create({
     data: {
       voteId,
       totalVotes: results.totalVotes,
@@ -161,9 +158,9 @@ export async function storeVotingResults(
           eliminatedId: round.eliminatedOption || undefined,
           tallies: {
             create: Array.from(
-              new Map(
-                round.tallyByOption.entries()
-              ).entries()
+                new Map(
+                    round.tallyByOption.entries()
+                ).entries()
             ).map(([optionId, votes]) => ({
               optionId,
               votes,
@@ -174,10 +171,8 @@ export async function storeVotingResults(
     },
     include: {
       rounds: {
-        include: { tallies: true },
+        include: {tallies: true},
       },
     },
-  })
-
-  return voteResult
+  });
 }
