@@ -176,8 +176,14 @@ export default function SpecificVotePage() {
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <Card className="w-full max-w-md">
           <CardContent className="py-12 text-center space-y-4">
-            <div className="text-5xl mb-2">✓</div>
-            <h2 className="text-xl font-semibold">Vote Submitted!</h2>
+            <div className="mb-6 flex justify-center">
+              <div className="rounded-full bg-green-100 p-4">
+                <Check className="w-8 h-8 text-green-600" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold text-neutral-900 mb-2">
+              Vote Submitted!
+            </h1>
             <p className="text-neutral-600">
               Your vote has been recorded.
             </p>
