@@ -8,9 +8,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ label: s
   const label = rawLabel?.toUpperCase()
   if (!label) return NextResponse.json({ error: "Missing label" }, { status: 400 })
 
-  // Build absolute URL for the vote page
+  // Build absolute URL for the vote page using forwarded headers (x-forwarded-host, host)
+  // to support proxies, load balancers, and proper external URLs
   const url = new URL(req.url)
-  const origin = `${url.protocol}//${url.host}`
+  const headers = req.headers
+  const forwardedHost = headers.get("x-forwarded-host")
+  const forwardedProto = headers.get("x-forwarded-proto")
+  const host = forwardedHost || headers.get("host") || url.host
+  const protocol = forwardedProto || url.protocol.replace(":", "")
+  
+  const origin = `${protocol}://${host}`
   const voteUrl = `${origin}/vote/${label}`
 
   try {
