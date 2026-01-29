@@ -279,9 +279,9 @@ export default function ResultsPage() {
                           )}
                         </span>
                       </div>
-                      <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden relative">
+                      <div className="w-full h-3 bg-neutral-200 rounded-full overflow-hidden relative">
                         <div
-                          className="absolute left-0 top-0 h-full bg-neutral-300"
+                          className="absolute left-0 top-0 h-full bg-neutral-500"
                           style={{ width: `${currentPct}%` }}
                         />
                         {idx > 0 ? (
