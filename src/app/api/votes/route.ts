@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { generateVoteLabel } from "@/lib/utils"
 
 const OWNER_COOKIE_NAME = "ballotbox-owned-votes"
+const ADMIN_TOKEN_ENV = process.env.BALLOTBOX_ADMIN_TOKEN
 
 const getOwnedLabels = async () => {
   const store = await cookies()
@@ -21,14 +22,39 @@ const getOwnedLabels = async () => {
 
 export const dynamic = "force-dynamic"
 
-export async function GET() {
-  const ownedLabels = await getOwnedLabels()
-  if (ownedLabels.length === 0) {
-    return NextResponse.json({ votes: [] })
+export async function GET(req: Request) {
+  const adminToken = req.headers.get("x-admin-token")
+  const isAdmin = Boolean(ADMIN_TOKEN_ENV && adminToken && adminToken === ADMIN_TOKEN_ENV)
+
+  if (!isAdmin) {
+    const ownedLabels = await getOwnedLabels()
+    if (ownedLabels.length === 0) {
+      return NextResponse.json({ votes: [], admin: false })
+    }
+
+    const votes = await prisma.vote.findMany({
+      where: { label: { in: ownedLabels } },
+      orderBy: { createdAt: "desc" },
+      include: {
+        options: { orderBy: { order: "asc" } },
+        _count: { select: { submissions: true } },
+      },
+    })
+
+    return NextResponse.json({
+      votes: votes.map((vote) => ({
+        label: vote.label,
+        title: vote.title,
+        isOpen: vote.isOpen,
+        createdAt: vote.createdAt,
+        voterCount: vote._count.submissions,
+        options: vote.options.map((o) => ({ id: o.id, label: o.label, order: o.order })),
+      })),
+      admin: false,
+    })
   }
 
   const votes = await prisma.vote.findMany({
-    where: { label: { in: ownedLabels } },
     orderBy: { createdAt: "desc" },
     include: {
       options: { orderBy: { order: "asc" } },
@@ -45,6 +71,7 @@ export async function GET() {
       voterCount: vote._count.submissions,
       options: vote.options.map((o) => ({ id: o.id, label: o.label, order: o.order })),
     })),
+    admin: true,
   })
 }
 

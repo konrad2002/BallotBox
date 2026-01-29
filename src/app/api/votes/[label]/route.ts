@@ -1,6 +1,30 @@
+import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { calculateIRVResults, storeVotingResults } from "@/lib/voting-calculator"
+
+const OWNER_COOKIE_NAME = "ballotbox-owned-votes"
+const ADMIN_TOKEN_ENV = process.env.BALLOTBOX_ADMIN_TOKEN
+
+const getOwnedLabels = async () => {
+  const store = await cookies()
+  const raw = store.get(OWNER_COOKIE_NAME)?.value
+  if (!raw) return [] as string[]
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed)
+      ? parsed.map((v) => v?.toString().trim()).filter(Boolean).slice(0, 200)
+      : []
+  } catch {
+    return []
+  }
+}
+
+const isAdminRequest = (req: Request) => {
+  if (!ADMIN_TOKEN_ENV) return false
+  const adminToken = req.headers.get("x-admin-token")
+  return Boolean(adminToken && adminToken === ADMIN_TOKEN_ENV)
+}
 
 export const dynamic = "force-dynamic"
 
@@ -34,6 +58,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ label:
   const { label: rawLabel } = await params
   const label = rawLabel?.toUpperCase()
   if (!label) return NextResponse.json({ error: "Missing label" }, { status: 400 })
+
+  if (!isAdminRequest(req)) {
+    const owned = await getOwnedLabels()
+    if (!owned.includes(label)) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+    }
+  }
 
   const body = await req.json().catch(() => ({}))
   const isOpen: boolean | undefined = body?.isOpen
@@ -77,10 +108,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ label:
   return NextResponse.json({ label: updated.label, isOpen: updated.isOpen })
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ label: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ label: string }> }) {
   const { label: rawLabel } = await params
   const label = rawLabel?.toUpperCase()
   if (!label) return NextResponse.json({ error: "Missing label" }, { status: 400 })
+
+  if (!isAdminRequest(req)) {
+    const owned = await getOwnedLabels()
+    if (!owned.includes(label)) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 })
+    }
+  }
 
   const deleted = await prisma.vote.delete({ where: { label } }).catch(() => null)
   if (!deleted) return NextResponse.json({ error: "Vote not found" }, { status: 404 })

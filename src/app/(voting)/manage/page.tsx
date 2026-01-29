@@ -29,6 +29,10 @@ export default function ManagePage() {
   const [votes, setVotes] = useState<Vote[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [adminToken, setAdminToken] = useState("")
+  const [adminTokenInput, setAdminTokenInput] = useState("")
+  const [adminActive, setAdminActive] = useState(false)
+  const [showAdminAccess, setShowAdminAccess] = useState(false)
 
   const [showNewVoteForm, setShowNewVoteForm] = useState(false)
   const [newVoteTitle, setNewVoteTitle] = useState("")
@@ -40,20 +44,33 @@ export default function ManagePage() {
     try {
       if (!opts?.silent) setLoading(true)
       setError(null)
-      const res = await fetch("/api/votes", { cache: "no-store" })
+      const res = await fetch("/api/votes", {
+        cache: "no-store",
+        headers: adminToken ? { "x-admin-token": adminToken } : undefined,
+      })
       if (!res.ok) throw new Error("Failed to load votes")
       const data = await res.json()
       setVotes(data.votes ?? [])
+      setAdminActive(Boolean(data.admin))
     } catch (err) {
       setError((err as Error).message)
     } finally {
       if (!opts?.silent) setLoading(false)
     }
-  }, [])
+  }, [adminToken])
 
   useEffect(() => {
     loadVotes()
   }, [loadVotes])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const saved = window.localStorage.getItem("ballotbox-admin-token") || ""
+    if (saved) {
+      setAdminToken(saved)
+      setAdminTokenInput(saved)
+    }
+  }, [])
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -89,7 +106,10 @@ export default function ManagePage() {
     try {
       const res = await fetch("/api/votes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { "x-admin-token": adminToken } : {}),
+        },
         body: JSON.stringify({
           title: newVoteTitle.trim(),
           options: newOptions.map((o) => o.label.trim()),
@@ -115,7 +135,10 @@ export default function ManagePage() {
     setVotes((prev) => prev.map((v) => (v.label === label ? { ...v, isOpen: nextOpen } : v)))
     const res = await fetch(`/api/votes/${label}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(adminToken ? { "x-admin-token": adminToken } : {}),
+      },
       body: JSON.stringify({ isOpen: nextOpen }),
     })
     if (!res.ok) {
@@ -128,7 +151,10 @@ export default function ManagePage() {
   const deleteVote = async (label: string) => {
     const prev = votes
     setVotes((p) => p.filter((v) => v.label !== label))
-    const res = await fetch(`/api/votes/${label}`, { method: "DELETE" })
+    const res = await fetch(`/api/votes/${label}`, {
+      method: "DELETE",
+      headers: adminToken ? { "x-admin-token": adminToken } : undefined,
+    })
     if (!res.ok) {
       setVotes(prev)
       setError("Failed to delete vote")
@@ -136,12 +162,27 @@ export default function ManagePage() {
   }
 
   const fetchResults = async (label: string) => {
-    const res = await fetch(`/api/votes/${label}/results`, { cache: "no-store" })
+    const res = await fetch(`/api/votes/${label}/results`, {
+      cache: "no-store",
+      headers: adminToken ? { "x-admin-token": adminToken } : undefined,
+    })
     if (!res.ok) {
       const data = await res.json().catch(() => null)
       throw new Error(data?.error || "Failed to load results")
     }
     return res.json()
+  }
+
+  const saveAdminToken = () => {
+    const next = adminTokenInput.trim()
+    if (typeof window !== "undefined") {
+      if (next) {
+        window.localStorage.setItem("ballotbox-admin-token", next)
+      } else {
+        window.localStorage.removeItem("ballotbox-admin-token")
+      }
+    }
+    setAdminToken(next)
   }
 
   const getTopFiveFromResults = (data: any) => {
@@ -1014,6 +1055,47 @@ export default function ManagePage() {
             New Vote
           </Button>
         </div>
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setShowAdminAccess((prev) => !prev)}
+            className="text-xs text-neutral-400 hover:text-neutral-600"
+          >
+            Admin access
+          </button>
+          {adminActive && (
+            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+              Admin mode
+            </Badge>
+          )}
+        </div>
+        {showAdminAccess && (
+          <Card className="mb-4">
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-neutral-900">Admin access</div>
+                  <p className="text-xs text-neutral-500">
+                    Enter the admin key to manage all votes. Leave empty for personal access.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Input
+                    type="password"
+                    value={adminTokenInput}
+                    onChange={(event) => setAdminTokenInput(event.target.value)}
+                    placeholder="Admin key"
+                    className="w-full sm:w-64"
+                  />
+                  <Button variant="outline" onClick={saveAdminToken}>
+                    {adminTokenInput.trim() ? "Enable" : "Clear"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {error && (
           <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
             {error}
