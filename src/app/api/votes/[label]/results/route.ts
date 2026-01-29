@@ -68,7 +68,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ label: 
             ? ((tally.votes / totalVotes) * 100).toFixed(1)
             : "0.0",
         }))
-        .sort((a, b) => b.votes - a.votes)
+        .sort((a, b) => {
+          if (b.votes !== a.votes) return b.votes - a.votes
+          return a.option.label.localeCompare(b.option.label)
+        })
 
       const previousRound = idx > 0 ? voteResult.rounds[idx - 1] : null
       const votesTransferred = previousRound && round.eliminated
