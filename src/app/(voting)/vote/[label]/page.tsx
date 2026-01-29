@@ -44,6 +44,20 @@ export default function SpecificVotePage() {
 
   const votedCookieName = "ballotbox-voted"
 
+  useEffect(() => {
+    if (!voteLabel || typeof window === "undefined") return
+    const raw = window.localStorage.getItem("ballotbox-recent-votes")
+    const normalized = voteLabel.toUpperCase()
+    try {
+      const parsed = raw ? JSON.parse(raw) : []
+      const list = Array.isArray(parsed) ? parsed.filter(Boolean) : []
+      const next = [normalized, ...list.filter((l) => l !== normalized)].slice(0, 6)
+      window.localStorage.setItem("ballotbox-recent-votes", JSON.stringify(next))
+    } catch {
+      window.localStorage.setItem("ballotbox-recent-votes", JSON.stringify([normalized]))
+    }
+  }, [voteLabel])
+
   const checkHasVoted = useMemo(() => () => {
     if (!voteLabel) return false
     if (typeof document === "undefined") return false
